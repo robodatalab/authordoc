@@ -220,6 +220,62 @@ describe("a plot's events", () => {
             edges: plot.edges,
         });
     });
+
+    it("are found by their id", () => {
+        const [plot] = new Document(THE_PLOT).cells as PlotCell[];
+
+        const found = plot.getNodeById("e2");
+
+        expect(found).toBe(plot.nodes[1]);
+    });
+
+    it("are not found by an id no event has", () => {
+        const [plot] = new Document(THE_PLOT).cells as PlotCell[];
+
+        expect(() => plot.getNodeById("e3")).toThrow();
+    });
+});
+
+describe("a plot's edges", () => {
+    it("belong to the plot that has them", () => {
+        const theDoor = new PlotCell(
+            "The door",
+            [new PlotNode("e1", null), new PlotNode("e2", null)],
+            [new PlotEdge("x1", "e1", "e2")],
+            "",
+            false,
+            null,
+            "p1",
+        );
+        const theBell = new PlotCell(
+            "The bell",
+            [new PlotNode("e3", null), new PlotNode("e4", null)],
+            [new PlotEdge("x2", "e3", "e4")],
+            "",
+            false,
+            null,
+            "p2",
+        );
+        const document = Document.fromCells([theDoor, theBell]);
+
+        const plot = document.getPlotOfEdge(new PlotEdge("x2", "e3", "e4"));
+
+        expect(plot.title).toBe("The bell");
+    });
+});
+
+describe("story word ranges", () => {
+    it.each([
+        ["sharing words", new StoryWordRange(2, 5), new StoryWordRange(4, 8), true],
+        ["sharing one word", new StoryWordRange(2, 4), new StoryWordRange(4, 8), true],
+        ["one inside the other", new StoryWordRange(2, 8), new StoryWordRange(4, 5), true],
+        ["apart", new StoryWordRange(2, 3), new StoryWordRange(4, 8), false],
+    ] as const)("overlap when they share a word: %s", (_, one, other, expected) => {
+        const overlapping = one.overlaps(other);
+        const overlappingTheOtherWay = other.overlaps(one);
+
+        expect([overlapping, overlappingTheOtherWay]).toEqual([expected, expected]);
+    });
 });
 
 describe("the story text of a document", () => {

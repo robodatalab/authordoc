@@ -87,6 +87,12 @@ class PlotCell(Cell):
         overview, nodes = plot_body_read(body)
         return cls(title, nodes, edges, overview, folded, at, unique_id)
 
+    def get_node_by_id(self, node_id: str) -> PlotNode:
+        for node in self.nodes:
+            if node.node_id == node_id:
+                return node
+        raise KeyError(node_id)
+
     def with_source(self, source: str) -> PlotCell:
         overview, nodes = plot_body_read(source)
         return replace(self, overview=overview, nodes=nodes)

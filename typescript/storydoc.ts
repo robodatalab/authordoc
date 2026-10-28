@@ -32,7 +32,7 @@
  */
 
 import { Cell, splitlines } from "./cells/cell";
-import { PlotCell } from "./cells/plot_cell";
+import { PlotCell, PlotEdge } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
 import { markerFor, parse } from "./parser";
@@ -105,6 +105,21 @@ export class Document {
 
     plots(): PlotCell[] {
         return this.cells.filter((cell) => cell instanceof PlotCell);
+    }
+
+    getPlotOfEdge(edge: PlotEdge): PlotCell {
+        const plot = this.plots().find((plot) =>
+            plot.edges.some(
+                (edgeOfThePlot) =>
+                    edgeOfThePlot.edgeId === edge.edgeId &&
+                    edgeOfThePlot.fromNodeId === edge.fromNodeId &&
+                    edgeOfThePlot.toNodeId === edge.toNodeId,
+            ),
+        );
+        if (plot === undefined) {
+            throw new Error(edge.edgeId);
+        }
+        return plot;
     }
 
     toString(): string {
