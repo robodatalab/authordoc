@@ -35,7 +35,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from authordoc.cells.cell import Cell
-from authordoc.cells.plot_cell import PlotCell
+from authordoc.cells.plot_cell import PlotCell, PlotEdge
 from authordoc.cells.salient_concept_cell import SalientConceptCell
 from authordoc.cells.title_page_cell import TitlePageCell
 from authordoc.parser import marker_for, parse
@@ -103,6 +103,10 @@ class Document:
 
     def plots(self) -> list[PlotCell]:
         return [cell for cell in self.cells if isinstance(cell, PlotCell)]
+
+    def get_plot_of_edge(self, edge: PlotEdge) -> PlotCell:
+        plot = next(plot for plot in self.plots() if edge in plot.edges)
+        return plot
 
     def __str__(self) -> str:
         return self.text

@@ -631,6 +631,62 @@ class PlotEvents(unittest.TestCase):
         )
         self.assertEqual(rewritten.edges, plot.edges)
 
+    def test_are_found_by_their_id(self) -> None:
+        (plot,) = Document(self.THE_PLOT).plots()
+
+        found = plot.get_node_by_id("e2")
+
+        self.assertEqual(found, plot.nodes[1])
+
+    def test_an_id_no_event_has_is_not_found(self) -> None:
+        (plot,) = Document(self.THE_PLOT).plots()
+
+        with self.assertRaises(KeyError):
+            plot.get_node_by_id("e3")
+
+
+class PlotEdges(unittest.TestCase):
+    def test_belong_to_the_plot_that_has_them(self) -> None:
+        the_door = PlotCell(
+            "The door",
+            [PlotNode("e1", None), PlotNode("e2", None)],
+            [PlotEdge("x1", "e1", "e2")],
+            "",
+            False,
+            None,
+            "p1",
+        )
+        the_bell = PlotCell(
+            "The bell",
+            [PlotNode("e3", None), PlotNode("e4", None)],
+            [PlotEdge("x2", "e3", "e4")],
+            "",
+            False,
+            None,
+            "p2",
+        )
+        document = Document.from_cells([the_door, the_bell])
+
+        plot = document.get_plot_of_edge(PlotEdge("x2", "e3", "e4"))
+
+        self.assertEqual(plot.title, "The bell")
+
+
+class StoryWordRanges(unittest.TestCase):
+    @parameterized.expand([
+        ("sharing_words", StoryWordRange(2, 5), StoryWordRange(4, 8), True),
+        ("sharing_one_word", StoryWordRange(2, 4), StoryWordRange(4, 8), True),
+        ("one_inside_the_other", StoryWordRange(2, 8), StoryWordRange(4, 5), True),
+        ("apart", StoryWordRange(2, 3), StoryWordRange(4, 8), False),
+    ])
+    def test_overlap_when_they_share_a_word(
+        self, _, one: StoryWordRange, other: StoryWordRange, expected: bool
+    ) -> None:
+        overlapping = one.overlaps(other)
+        overlapping_the_other_way = other.overlaps(one)
+
+        self.assertEqual((overlapping, overlapping_the_other_way), (expected, expected))
+
 
 class StoryText(unittest.TestCase):
     @parameterized.expand([

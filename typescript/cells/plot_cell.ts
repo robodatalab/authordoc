@@ -119,6 +119,14 @@ export class PlotCell extends Cell {
         return new PlotCell(title, nodes, edges, overview, folded, at, uniqueId);
     }
 
+    getNodeById(nodeId: string): PlotNode {
+        const node = this.nodes.find((node) => node.nodeId === nodeId);
+        if (node === undefined) {
+            throw new Error(nodeId);
+        }
+        return node;
+    }
+
     withSource(source: string): PlotCell {
         return PlotCell.fromBody(
             this.title,
