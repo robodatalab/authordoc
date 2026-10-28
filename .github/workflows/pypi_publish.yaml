@@ -8,8 +8,8 @@ on:
             - "tests/python/**"
             - "tests/storydoc_corpus.json"
             - "pyproject.toml"
-            - "uv.lock"
             - ".github/workflows/pypi_publish.yaml"
+            - ".github/workflows/tests.yaml"
 
 concurrency:
     group: pypi-publish
@@ -17,17 +17,9 @@ concurrency:
 
 jobs:
     test:
-        runs-on: ubuntu-latest
+        uses: ./.github/workflows/tests.yaml
         permissions:
             contents: read
-        steps:
-            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-              with:
-                  persist-credentials: false
-            - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
-              with:
-                  enable-cache: false
-            - run: uv run pytest
 
     bump:
         needs: test
@@ -46,7 +38,7 @@ jobs:
               run: |
                   STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/authordoc/$(uv version --short)/json")
                   if [ "$STATUS" = "200" ]; then
-                    uv version --bump patch --no-sync
+                    uv version --bump patch --frozen
                     git config user.name "github-actions[bot]"
                     git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
                     git commit -am "pypi version $(uv version --short)"
