@@ -1,0 +1,29 @@
+{
+    "name": "authordoc",
+    "version": "0.1.0",
+    "description": ".author files sdk",
+    "license": "Apache-2.0",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/robodatalab/authordoc.git"
+    },
+    "files": [
+        "lib"
+    ],
+    "exports": {
+        "./*": {
+            "types": "./lib/*.d.ts",
+            "default": "./lib/*.js"
+        }
+    },
+    "scripts": {
+        "build": "tsc",
+        "prepack": "npm run build",
+        "test": "vitest run"
+    },
+    "devDependencies": {
+        "@types/node": "24.x",
+        "typescript": "^6.0.3",
+        "vitest": "^3.2.4"
+    }
+}

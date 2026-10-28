@@ -1,0 +1,94 @@
+name: npm_publish
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "typescript/**"
+            - "tests/typescript/**"
+            - "tests/storydoc_corpus.json"
+            - "package.json"
+            - "package-lock.json"
+            - "tsconfig.json"
+            - ".github/workflows/npm_publish.yaml"
+
+concurrency:
+    group: npm-publish
+    cancel-in-progress: false
+
+jobs:
+    test:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  persist-credentials: false
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+            - run: npm ci
+            - run: npm test
+
+    bump:
+        needs: test
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        outputs:
+            version: ${{ steps.v.outputs.version }}
+            sha: ${{ steps.v.outputs.sha }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+            - id: v
+              run: |
+                  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://registry.npmjs.org/authordoc/$(node -p "require('./package.json').version")")
+                  if [ "$STATUS" = "200" ]; then
+                    npm version patch --no-git-tag-version
+                    git config user.name "github-actions[bot]"
+                    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                    git commit -am "npm version $(node -p "require('./package.json').version")"
+                    git pull --rebase origin main
+                    git push origin HEAD:main
+                  fi
+                  echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+                  echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    publish:
+        needs: bump
+        runs-on: ubuntu-latest
+        environment:
+            name: npm
+        permissions:
+            contents: read
+            id-token: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.bump.outputs.sha }}
+                  persist-credentials: false
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+                  registry-url: https://registry.npmjs.org
+            - run: npm ci
+            - run: npm publish
+
+    tag:
+        needs: [bump, publish]
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.bump.outputs.sha }}
+            - env:
+                  VERSION: ${{ needs.bump.outputs.version }}
+              run: |
+                  git tag "npm-v$VERSION"
+                  git push origin "npm-v$VERSION"

@@ -4,46 +4,67 @@ on:
     push:
         branches: [main]
         paths:
+            - "authordoc/**"
+            - "tests/python/**"
+            - "tests/storydoc_corpus.json"
             - "pyproject.toml"
-            - ".github/workflows/pypi_publish.yml"
+            - "uv.lock"
+            - ".github/workflows/pypi_publish.yaml"
 
 concurrency:
     group: pypi-publish
     cancel-in-progress: false
 
 jobs:
-    check:
+    test:
         runs-on: ubuntu-latest
         permissions:
             contents: read
-        outputs:
-            version: ${{ steps.v.outputs.version }}
-            published: ${{ steps.v.outputs.published }}
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   persist-credentials: false
+            - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+              with:
+                  enable-cache: false
+            - run: uv run pytest
+
+    bump:
+        needs: test
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+        outputs:
+            version: ${{ steps.v.outputs.version }}
+            sha: ${{ steps.v.outputs.sha }}
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+              with:
+                  enable-cache: false
             - id: v
               run: |
-                  VERSION=$(grep -E '^version = ' pyproject.toml | head -1 | sed -E 's/version = "([^"]+)"/\1/')
-                  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/authordoc/$VERSION/json")
-                  echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+                  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/authordoc/$(uv version --short)/json")
                   if [ "$STATUS" = "200" ]; then
-                    echo "authordoc $VERSION already on PyPI, nothing to publish"
-                    echo "published=true" >> "$GITHUB_OUTPUT"
-                  else
-                    echo "published=false" >> "$GITHUB_OUTPUT"
+                    uv version --bump patch --no-sync
+                    git config user.name "github-actions[bot]"
+                    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                    git commit -am "pypi version $(uv version --short)"
+                    git pull --rebase origin main
+                    git push origin HEAD:main
                   fi
+                  echo "version=$(uv version --short)" >> "$GITHUB_OUTPUT"
+                  echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
     build:
-        needs: check
-        if: needs.check.outputs.published == 'false'
+        needs: bump
         runs-on: ubuntu-latest
         permissions:
             contents: read
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
+                  ref: ${{ needs.bump.outputs.sha }}
                   persist-credentials: false
             - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
               with:
@@ -73,14 +94,16 @@ jobs:
             - run: uv publish
 
     tag:
-        needs: [check, publish]
+        needs: [bump, publish]
         runs-on: ubuntu-latest
         permissions:
             contents: write
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: ${{ needs.bump.outputs.sha }}
             - env:
-                  VERSION: ${{ needs.check.outputs.version }}
+                  VERSION: ${{ needs.bump.outputs.version }}
               run: |
-                  git tag "v$VERSION" "$GITHUB_SHA"
-                  git push origin "v$VERSION"
+                  git tag "pypi-v$VERSION"
+                  git push origin "pypi-v$VERSION"
