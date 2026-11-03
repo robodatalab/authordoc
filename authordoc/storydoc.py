@@ -53,6 +53,14 @@ class Document:
 
     @classmethod
     def from_cells(cls, cells: list[Cell], path: Path | None = None) -> Document:
+        """A new document made of `cells`, in their order. The cells are written
+        out and read back, so every cell is as a fresh read of the file gives it,
+        with the lines it is written on.
+
+        Use it to build a document, to add, remove or reorder cells, or when the
+        document you hold must stay as it is: no document is changed. It writes
+        and reads the whole document. To change one cell of a document you hold,
+        leaving every cell where it is, use `update_cell`."""
         written = cls("", path)
         written.cells = list(cells)
         return cls(written.text, path)
@@ -99,9 +107,15 @@ class Document:
         return next((cell for cell in self.cells if cell.unique_id == cell_id), None)
 
     def update_cell(self, cell_id: str, cell: Cell) -> None:
-        """Puts `cell` in the place of the cell with id `cell_id`; nothing changes
-        when the document has no such cell. The lines every cell is written on are
-        the ones last read, until the document is read again."""
+        """Puts `cell` in the place of the cell with id `cell_id`, in this
+        document, so that whoever holds the document sees the change; nothing
+        changes when the document has no such cell.
+
+        Use it to change one cell of a document you hold, every cell staying where
+        it is. Nothing is read again: the lines every cell is written on stay the
+        ones last read, until the document is read again. To add, remove or
+        reorder cells, to get a new document and leave this one as it is, or to
+        have the lines of every cell right, use `from_cells`."""
         self.cells = [cell if held.unique_id == cell_id else held for held in self.cells]
 
     def salient_concepts(self) -> list[SalientConceptCell]:
