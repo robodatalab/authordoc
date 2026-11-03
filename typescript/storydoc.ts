@@ -51,6 +51,16 @@ export class Document {
         this.cells = parse(text);
     }
 
+    /**
+     * A new document made of `cells`, in their order. The cells are written out
+     * and read back, so every cell is as a fresh read of the file gives it, with
+     * the lines it is written on.
+     *
+     * Use it to build a document, to add, remove or reorder cells, or when the
+     * document you hold must stay as it is: no document is changed. It writes
+     * and reads the whole document. To change one cell of a document you hold,
+     * leaving every cell where it is, use `updateCell`.
+     */
     static fromCells(
         cells: readonly Cell[],
         path: string | null = null,
@@ -97,6 +107,21 @@ export class Document {
 
     cellWithId(cellId: string): Cell | undefined {
         return this.cells.find((cell) => cell.uniqueId === cellId);
+    }
+
+    /**
+     * Puts `cell` in the place of the cell with id `cellId`, in this document,
+     * so that whoever holds the document sees the change; nothing changes when
+     * the document has no such cell.
+     *
+     * Use it to change one cell of a document you hold, every cell staying where
+     * it is. Nothing is read again: the lines every cell is written on stay the
+     * ones last read, until the document is read again. To add, remove or
+     * reorder cells, to get a new document and leave this one as it is, or to
+     * have the lines of every cell right, use `fromCells`.
+     */
+    updateCell(cellId: string, cell: Cell): void {
+        this.cells = this.cells.map((held) => (held.uniqueId === cellId ? cell : held));
     }
 
     salientConcepts(): SalientConceptCell[] {
