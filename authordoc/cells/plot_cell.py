@@ -51,6 +51,22 @@ class PlotNode:
     location: str = ""
     summary: str = ""
 
+    def with_story_word_range(self, story_word_range: StoryWordRange | None) -> PlotNode:
+        with_the_words = replace(self, story_word_range=story_word_range)
+        return with_the_words
+
+    def with_timestamp(self, timestamp: str) -> PlotNode:
+        with_the_timestamp = replace(self, timestamp=timestamp)
+        return with_the_timestamp
+
+    def with_location(self, location: str) -> PlotNode:
+        with_the_location = replace(self, location=location)
+        return with_the_location
+
+    def with_summary(self, summary: str) -> PlotNode:
+        with_the_summary = replace(self, summary=summary)
+        return with_the_summary
+
 
 @dataclass(frozen=True)
 class PlotEdge:
@@ -123,6 +139,12 @@ class PlotCell(Cell):
     def with_nodes(self, nodes: list[PlotNode]) -> PlotCell:
         with_the_nodes = replace(self, nodes=nodes)
         return with_the_nodes
+
+    def with_node(self, node: PlotNode) -> PlotCell:
+        """The plot with `node` in place of its event of the same id."""
+        nodes = [node if held.node_id == node.node_id else held for held in self.nodes]
+        with_the_node = replace(self, nodes=nodes)
+        return with_the_node
 
     def with_edges(self, edges: list[PlotEdge]) -> PlotCell:
         with_the_edges = replace(self, edges=edges)

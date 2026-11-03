@@ -277,7 +277,7 @@ describe("updating a cell", () => {
         const lantern = document.cellWithId("m1") as MarkdownCell;
         const lit = lantern.withSource("The lantern was lit.");
 
-        document.updateCell("m1", lit);
+        document.updateCell(lit);
 
         expect(document.cells.map((cell) => cell.source)).toEqual([
             "The lantern was lit.",
@@ -290,7 +290,7 @@ describe("updating a cell", () => {
         const document = writtenDocument();
         const cellsBefore = [...document.cells];
 
-        document.updateCell("m3", new MarkdownCell("A bell rang."));
+        document.updateCell(new MarkdownCell("A bell rang.", false, null, "m3"));
 
         expect(document.cells).toEqual(cellsBefore);
     });
