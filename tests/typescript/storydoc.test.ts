@@ -341,6 +341,41 @@ describe("a plot's concepts", () => {
         const [motherhood, promise] = document.salientConcepts();
         expect(concepts).toEqual([promise, motherhood]);
     });
+
+    it("are kept when the plot is retitled", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+
+        const retitled = plot.withTitle("A mother");
+
+        const concepts = retitled.concepts(document);
+        const [motherhood, promise] = document.salientConcepts();
+        expect([retitled.title, concepts]).toEqual(["A mother", [promise, motherhood]]);
+    });
+
+    it("are kept when the events change", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+        const nodes = [new PlotNode("e1", null, "1", "earth", "Varn calls her daughter.")];
+
+        const withTheNodes = plot.withNodes(nodes);
+
+        const concepts = withTheNodes.concepts(document);
+        const [motherhood, promise] = document.salientConcepts();
+        expect([withTheNodes.nodes, concepts]).toEqual([nodes, [promise, motherhood]]);
+    });
+
+    it("are kept when the edges change", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+        const edges = [new PlotEdge("x1", "e1", "e2")];
+
+        const withTheEdges = plot.withEdges(edges);
+
+        const concepts = withTheEdges.concepts(document);
+        const [motherhood, promise] = document.salientConcepts();
+        expect([withTheEdges.edges, concepts]).toEqual([edges, [promise, motherhood]]);
+    });
 });
 
 describe("story word ranges", () => {
