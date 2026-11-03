@@ -192,7 +192,7 @@ class UpdatingACell(unittest.TestCase):
         assert lantern is not None
         lit = lantern.with_source("The lantern was lit.")
 
-        self.document.update_cell("m1", lit)
+        self.document.update_cell(lit)
 
         self.assertEqual(
             [cell.source for cell in self.document.cells],
@@ -203,7 +203,7 @@ class UpdatingACell(unittest.TestCase):
     def test_changes_nothing_when_no_cell_has_the_id(self) -> None:
         cells_before = list(self.document.cells)
 
-        self.document.update_cell("m3", MarkdownCell("A bell rang."))
+        self.document.update_cell(MarkdownCell("A bell rang.", False, None, "m3"))
 
         self.assertEqual(self.document.cells, cells_before)
 
@@ -673,6 +673,27 @@ class PlotEvents(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             plot.get_node_by_id("e3")
+
+    def test_take_a_new_moment_place_summary_and_words_one_at_a_time(self) -> None:
+        (plot,) = Document(self.THE_PLOT).plots()
+        event, _ = plot.nodes
+
+        moved = event.with_timestamp("2.1").with_location("orbit")
+        retold = moved.with_summary("Varn calls her daughter.").with_story_word_range(None)
+
+        self.assertEqual(retold, PlotNode("e1", None, "2.1", "orbit", "Varn calls her daughter."))
+        self.assertEqual(event.summary, "Captain Varn watches the news with her daughter.")
+
+    def test_one_is_put_in_place_of_the_event_of_its_id(self) -> None:
+        (plot,) = Document(self.THE_PLOT).plots()
+        first, second = plot.nodes
+        retold = second.with_summary("Varn takes command of the corvette.")
+
+        replotted = plot.with_node(retold)
+
+        self.assertEqual(replotted.nodes, [first, retold])
+        self.assertEqual(replotted.edges, plot.edges)
+        self.assertEqual(plot.nodes, [first, second])
 
 
 class PlotEdges(unittest.TestCase):

@@ -110,9 +110,9 @@ export class Document {
     }
 
     /**
-     * Puts `cell` in the place of the cell with id `cellId`, in this document,
-     * so that whoever holds the document sees the change; nothing changes when
-     * the document has no such cell.
+     * Puts `cell` in the place of the cell with its id, in this document, so
+     * that whoever holds the document sees the change; nothing changes when the
+     * document has no cell with that id.
      *
      * Use it to change one cell of a document you hold, every cell staying where
      * it is. Nothing is read again: the lines every cell is written on stay the
@@ -120,8 +120,8 @@ export class Document {
      * reorder cells, to get a new document and leave this one as it is, or to
      * have the lines of every cell right, use `fromCells`.
      */
-    updateCell(cellId: string, cell: Cell): void {
-        this.cells = this.cells.map((held) => (held.uniqueId === cellId ? cell : held));
+    updateCell(cell: Cell): void {
+        this.cells = this.cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
     }
 
     salientConcepts(): SalientConceptCell[] {
