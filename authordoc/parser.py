@@ -37,6 +37,7 @@ from authordoc.visitors.marker_attributes import (
     KDP,
     LANGUAGE,
     NO,
+    PLOT_CONCEPTS,
     PLOT_EDGES,
     PLOT_NODES,
     PORTRAIT,
@@ -148,6 +149,12 @@ def _plot_edges_in(written: str) -> list[PlotEdge]:
     return edges
 
 
+def _plot_concepts_in(written: str) -> list[str]:
+    parts = [written_concept.strip() for written_concept in written.split(",")]
+    concepts = [concept_id for concept_id in parts if concept_id]
+    return concepts
+
+
 def _cell_from_marker(
     kind: str,
     attrs: dict[str, str],
@@ -219,15 +226,23 @@ def _cell_from_marker(
         )
     if kind == PLOT:
         edges = _plot_edges_in(attrs.get(PLOT_EDGES, ""))
+        concepts = _plot_concepts_in(attrs.get(PLOT_CONCEPTS, ""))
         # A plot written before plots had events keeps its nodes in its marker
         # and its overview in its body; it is written back with events.
         if PLOT_NODES in attrs:
             nodes = _plot_nodes_in(attrs[PLOT_NODES])
             return PlotCell(
-                attrs.get(TITLE, ""), nodes, edges, source, folded, at, unique_id
+                attrs.get(TITLE, ""),
+                nodes,
+                edges,
+                source,
+                folded,
+                at,
+                unique_id,
+                concepts,
             )
         return PlotCell.from_body(
-            attrs.get(TITLE, ""), edges, source, folded, at, unique_id
+            attrs.get(TITLE, ""), edges, source, folded, at, unique_id, concepts
         )
     return UnknownCell(kind, attrs, source, folded, at, unique_id)
 

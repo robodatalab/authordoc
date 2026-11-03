@@ -238,6 +238,7 @@ class PassagesKeptInStep implements CellVisitor<Cell> {
             cell.folded,
             cell.at,
             cell.uniqueId,
+            cell._concepts,
         );
     }
 
