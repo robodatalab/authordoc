@@ -264,6 +264,85 @@ describe("a plot's edges", () => {
     });
 });
 
+describe("a plot's concepts", () => {
+    const THE_STORY = [
+        '<!-- cell: salient-concept id="k1" title="Motherhood" -->',
+        "",
+        "A mother puts her child first.",
+        '<!-- cell: salient-concept id="k2" title="The promise" -->',
+        "",
+        "A promise is kept whatever it costs.",
+        '<!-- cell: plot id="p1" title="Captain Varn and her daughter" concepts="k2, k1" -->',
+        "",
+        '<ol title="How Captain Varn gave her life to buy her daughter time.">',
+        "</ol>",
+        "",
+    ].join("\n");
+
+    it("are the salient concepts the plot references, in its order", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+
+        const concepts = plot.concepts(document);
+
+        const [motherhood, promise] = document.salientConcepts();
+        expect(concepts).toEqual([promise, motherhood]);
+    });
+
+    it("leave out a concept the document no longer has", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+        const [motherhood] = document.salientConcepts();
+        const withoutThePromise = Document.fromCells([motherhood, plot]);
+
+        const concepts = plot.concepts(withoutThePromise);
+
+        expect(concepts).toEqual([motherhood]);
+    });
+
+    it("are the ones given when replaced", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+        const [motherhood] = document.salientConcepts();
+
+        const referencing = plot.withConcepts([motherhood]);
+
+        const concepts = referencing.concepts(document);
+        expect(concepts).toEqual([motherhood]);
+    });
+
+    it("are written into the plot's marker", () => {
+        const motherhood = new SalientConceptCell("Motherhood", [], "", false, null, "k1");
+        const promise = new SalientConceptCell("The promise", [], "", false, null, "k2");
+        const plot = new PlotCell("The door", [], [], "She finds the door.", false, null, "p1");
+
+        const referencing = plot.withConcepts([motherhood, promise]);
+
+        const written = Document.fromCells([referencing]).text;
+
+        expect(written).toBe(
+            [
+                '<!-- cell: plot id="p1" title="The door" concepts="k1, k2" -->',
+                "",
+                '<ol title="She finds the door.">',
+                "</ol>",
+                "",
+            ].join("\n"),
+        );
+    });
+
+    it("are kept when the body is rewritten", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+
+        const rewritten = plot.withSource('<ol title="A mother.">\n</ol>');
+
+        const concepts = rewritten.concepts(document);
+        const [motherhood, promise] = document.salientConcepts();
+        expect(concepts).toEqual([promise, motherhood]);
+    });
+});
+
 describe("story word ranges", () => {
     it.each([
         ["sharing words", new StoryWordRange(2, 5), new StoryWordRange(4, 8), true],

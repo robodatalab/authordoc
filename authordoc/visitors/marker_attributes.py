@@ -49,6 +49,7 @@ SALIENT_CONCEPT_REFERENCES = "words"
 
 PLOT_NODES = "nodes"
 PLOT_EDGES = "edges"
+PLOT_CONCEPTS = "concepts"
 
 
 def _without_the_ones_nothing_is_said_about(
@@ -71,6 +72,11 @@ def _written_plot_edges(edges: list[PlotEdge]) -> str:
     return ", ".join(
         f"{edge.edge_id}:{edge.from_node_id}>{edge.to_node_id}" for edge in edges
     )
+
+
+def _written_plot_concepts(concepts: list[str]) -> str:
+    written = ", ".join(concepts)
+    return written
 
 
 class MarkerAttributes(CellVisitor[dict[str, str]]):
@@ -137,11 +143,13 @@ class MarkerAttributes(CellVisitor[dict[str, str]]):
             {TITLE: cell.title, SALIENT_CONCEPT_REFERENCES: references}
         )
 
-    # A plot's events are its body; its marker says only its title and edges.
+    # A plot's events are its body; its marker says only its title, its edges
+    # and the concepts it references.
     def visit_plot(self, cell: PlotCell) -> dict[str, str]:
         edges = _written_plot_edges(cell.edges)
+        concepts = _written_plot_concepts(cell._concepts)
         return _without_the_ones_nothing_is_said_about(
-            {TITLE: cell.title, PLOT_EDGES: edges}
+            {TITLE: cell.title, PLOT_EDGES: edges, PLOT_CONCEPTS: concepts}
         )
 
     def visit_unknown(self, cell: UnknownCell) -> dict[str, str]:

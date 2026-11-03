@@ -1,5 +1,7 @@
+import type { Document } from "../storydoc";
 import { Cell } from "./cell";
 import type { CellVisitor } from "./cell_visitor";
+import { SalientConceptCell } from "./salient_concept_cell";
 import { StoryWordRange } from "./story_word_range";
 import {
     attributesIn,
@@ -102,6 +104,8 @@ export class PlotCell extends Cell {
         folded: boolean = false,
         at: readonly [number, number] | null = null,
         uniqueId: string = crypto.randomUUID(),
+        // The ids of the salient concepts the plot references.
+        readonly _concepts: readonly string[] = [],
     ) {
         super(writtenPlotBody(overview, nodes), folded, at, uniqueId);
     }
@@ -114,9 +118,19 @@ export class PlotCell extends Cell {
         folded: boolean,
         at: readonly [number, number] | null,
         uniqueId: string,
+        concepts: readonly string[],
     ): PlotCell {
         const [overview, nodes] = plotBodyRead(body);
-        return new PlotCell(title, nodes, edges, overview, folded, at, uniqueId);
+        return new PlotCell(
+            title,
+            nodes,
+            edges,
+            overview,
+            folded,
+            at,
+            uniqueId,
+            concepts,
+        );
     }
 
     getNodeById(nodeId: string): PlotNode {
@@ -127,6 +141,20 @@ export class PlotCell extends Cell {
         return node;
     }
 
+    /**
+     * The salient concepts of `document` the plot references, in the order it
+     * references them; a concept the document no longer has is left out.
+     */
+    concepts(document: Document): SalientConceptCell[] {
+        const referenced = this._concepts.map((conceptId) =>
+            document.cellWithId(conceptId),
+        );
+        const concepts = referenced.filter(
+            (cell) => cell instanceof SalientConceptCell,
+        );
+        return concepts;
+    }
+
     withSource(source: string): PlotCell {
         return PlotCell.fromBody(
             this.title,
@@ -135,6 +163,7 @@ export class PlotCell extends Cell {
             this.folded,
             this.at,
             this.uniqueId,
+            this._concepts,
         );
     }
 
@@ -147,6 +176,7 @@ export class PlotCell extends Cell {
             folded,
             this.at,
             this.uniqueId,
+            this._concepts,
         );
     }
 
@@ -159,7 +189,24 @@ export class PlotCell extends Cell {
             this.folded,
             this.at,
             this.uniqueId,
+            this._concepts,
         );
+    }
+
+    /** The plot referencing `concepts`, in their order. */
+    withConcepts(concepts: readonly SalientConceptCell[]): PlotCell {
+        const conceptIds = concepts.map((concept) => concept.uniqueId);
+        const referencing = new PlotCell(
+            this.title,
+            this.nodes,
+            this.edges,
+            this.overview,
+            this.folded,
+            this.at,
+            this.uniqueId,
+            conceptIds,
+        );
+        return referencing;
     }
 
     /** The plot with `node` in place of its event of the same id. */
@@ -175,6 +222,7 @@ export class PlotCell extends Cell {
             this.folded,
             this.at,
             this.uniqueId,
+            this._concepts,
         );
     }
 
@@ -200,6 +248,7 @@ export class PlotCell extends Cell {
             this.folded,
             this.at,
             this.uniqueId,
+            this._concepts,
         );
     }
 

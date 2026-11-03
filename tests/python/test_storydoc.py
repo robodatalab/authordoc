@@ -672,6 +672,77 @@ class PlotEdges(unittest.TestCase):
         self.assertEqual(plot.title, "The bell")
 
 
+class PlotConcepts(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: salient-concept id="k1" title="Motherhood" -->\n'
+        '\n'
+        'A mother puts her child first.\n'
+        '<!-- cell: salient-concept id="k2" title="The promise" -->\n'
+        '\n'
+        'A promise is kept whatever it costs.\n'
+        '<!-- cell: plot id="p1" title="Captain Varn and her daughter" concepts="k2, k1" -->\n'
+        '\n'
+        '<ol title="How Captain Varn gave her life to buy her daughter time.">\n'
+        '</ol>\n'
+    )
+
+    def test_are_the_salient_concepts_the_plot_references_in_its_order(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+
+        concepts = plot.concepts(document)
+
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual(concepts, [promise, motherhood])
+
+    def test_leave_out_a_concept_the_document_no_longer_has(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+        motherhood, _ = document.salient_concepts()
+        without_the_promise = Document.from_cells([motherhood, plot])
+
+        concepts = plot.concepts(without_the_promise)
+
+        self.assertEqual(concepts, [motherhood])
+
+    def test_are_the_ones_given_when_replaced(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+        motherhood, _ = document.salient_concepts()
+
+        referencing = plot.with_concepts([motherhood])
+
+        concepts = referencing.concepts(document)
+        self.assertEqual(concepts, [motherhood])
+
+    def test_are_written_into_the_plots_marker(self) -> None:
+        motherhood = SalientConceptCell("Motherhood", [], "", False, None, "k1")
+        promise = SalientConceptCell("The promise", [], "", False, None, "k2")
+        plot = PlotCell("The door", [], [], "She finds the door.", False, None, "p1")
+
+        referencing = plot.with_concepts([motherhood, promise])
+
+        written = Document.from_cells([referencing]).text
+
+        self.assertEqual(
+            written,
+            '<!-- cell: plot id="p1" title="The door" concepts="k1, k2" -->\n'
+            '\n'
+            '<ol title="She finds the door.">\n'
+            '</ol>\n',
+        )
+
+    def test_are_kept_when_the_body_is_rewritten(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+
+        rewritten = plot.with_source('<ol title="A mother.">\n</ol>')
+
+        concepts = rewritten.concepts(document)
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual(concepts, [promise, motherhood])
+
+
 class StoryWordRanges(unittest.TestCase):
     @parameterized.expand([
         ("sharing_words", StoryWordRange(2, 5), StoryWordRange(4, 8), True),

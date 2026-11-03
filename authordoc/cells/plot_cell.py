@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, TypeVar
 from uuid import uuid4
 
 from authordoc.cells.cell import Cell
+from authordoc.cells.salient_concept_cell import SalientConceptCell
 from authordoc.cells.story_word_range import StoryWordRange
 from authordoc.written_attributes import attributes_in, written_attribute_value
 
 if TYPE_CHECKING:
     from authordoc.cells.cell_visitor import CellVisitor
+    from authordoc.storydoc import Document
 
 PLOT = "plot"
 
@@ -68,6 +71,8 @@ class PlotCell(Cell):
     folded: bool = False
     at: tuple[int, int] | None = field(default=None, compare=False)
     _unique_id: str = field(default_factory=lambda: str(uuid4()))
+    # The ids of the salient concepts the plot references.
+    _concepts: list[str] = field(default_factory=list)
 
     @property
     def source(self) -> str:  # type: ignore[override]
@@ -82,16 +87,24 @@ class PlotCell(Cell):
         folded: bool,
         at: tuple[int, int] | None,
         unique_id: str,
+        concepts: list[str],
     ) -> PlotCell:
         """The plot whose body is `body`: its overview and events read from it."""
         overview, nodes = plot_body_read(body)
-        return cls(title, nodes, edges, overview, folded, at, unique_id)
+        return cls(title, nodes, edges, overview, folded, at, unique_id, concepts)
 
     def get_node_by_id(self, node_id: str) -> PlotNode:
         for node in self.nodes:
             if node.node_id == node_id:
                 return node
         raise KeyError(node_id)
+
+    def concepts(self, document: Document) -> list[SalientConceptCell]:
+        """The salient concepts of `document` the plot references, in the order it
+        references them; a concept the document no longer has is left out."""
+        referenced = [document.cell_with_id(concept_id) for concept_id in self._concepts]
+        concepts = [cell for cell in referenced if isinstance(cell, SalientConceptCell)]
+        return concepts
 
     def with_source(self, source: str) -> PlotCell:
         overview, nodes = plot_body_read(source)
@@ -102,6 +115,12 @@ class PlotCell(Cell):
 
     def with_overview(self, overview: str) -> PlotCell:
         return replace(self, overview=overview)
+
+    def with_concepts(self, concepts: Sequence[SalientConceptCell]) -> PlotCell:
+        """The plot referencing `concepts`, in their order."""
+        concept_ids = [concept.unique_id for concept in concepts]
+        referencing = replace(self, _concepts=concept_ids)
+        return referencing
 
     def accept(self, visitor: CellVisitor[_Result]) -> _Result:
         return visitor.visit_plot(self)

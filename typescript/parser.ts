@@ -33,6 +33,7 @@ import {
     KDP,
     LANGUAGE,
     NO,
+    PLOT_CONCEPTS,
     PLOT_EDGES,
     PLOT_NODES,
     PORTRAIT,
@@ -175,6 +176,14 @@ function plotEdgesIn(written: string): PlotEdge[] {
     return edges;
 }
 
+function plotConceptsIn(written: string): string[] {
+    const parts = written
+        .split(",")
+        .map((writtenConcept) => writtenConcept.trim());
+    const concepts = parts.filter((conceptId) => conceptId !== "");
+    return concepts;
+}
+
 function cellFromMarker(
     kind: string,
     attrs: Record<string, string>,
@@ -277,6 +286,7 @@ function cellFromMarker(
         }
         case PLOT: {
             const edges = plotEdgesIn(attrs[PLOT_EDGES] ?? "");
+            const concepts = plotConceptsIn(attrs[PLOT_CONCEPTS] ?? "");
             // A plot written before plots had events keeps its nodes in its
             // marker and its overview in its body; it is written back with events.
             if (attrs[PLOT_NODES] !== undefined) {
@@ -289,6 +299,7 @@ function cellFromMarker(
                     folded,
                     at,
                     uniqueId,
+                    concepts,
                 );
             }
             return PlotCell.fromBody(
@@ -298,6 +309,7 @@ function cellFromMarker(
                 folded,
                 at,
                 uniqueId,
+                concepts,
             );
         }
         default:

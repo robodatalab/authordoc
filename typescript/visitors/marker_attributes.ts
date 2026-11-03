@@ -42,6 +42,7 @@ export const SALIENT_CONCEPT_REFERENCES = "words";
 
 export const PLOT_NODES = "nodes";
 export const PLOT_EDGES = "edges";
+export const PLOT_CONCEPTS = "concepts";
 
 function withoutTheOnesNothingIsSaidAbout(
     attributes: Record<string, string>,
@@ -65,6 +66,11 @@ function writtenPlotEdges(edges: readonly PlotEdge[]): string {
     return edges
         .map((edge) => `${edge.edgeId}:${edge.fromNodeId}>${edge.toNodeId}`)
         .join(", ");
+}
+
+function writtenPlotConcepts(concepts: readonly string[]): string {
+    const written = concepts.join(", ");
+    return written;
 }
 
 export class MarkerAttributes implements CellVisitor<Record<string, string>> {
@@ -144,12 +150,15 @@ export class MarkerAttributes implements CellVisitor<Record<string, string>> {
         });
     }
 
-    // A plot's events are its body; its marker says only its title and edges.
+    // A plot's events are its body; its marker says only its title, its edges
+    // and the concepts it references.
     visitPlot(cell: PlotCell): Record<string, string> {
         const edges = writtenPlotEdges(cell.edges);
+        const concepts = writtenPlotConcepts(cell._concepts);
         return withoutTheOnesNothingIsSaidAbout({
             [TITLE]: cell.title,
             [PLOT_EDGES]: edges,
+            [PLOT_CONCEPTS]: concepts,
         });
     }
 
