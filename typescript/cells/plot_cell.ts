@@ -193,6 +193,48 @@ export class PlotCell extends Cell {
         );
     }
 
+    withTitle(title: string): PlotCell {
+        const retitled = new PlotCell(
+            title,
+            this.nodes,
+            this.edges,
+            this.overview,
+            this.folded,
+            this.at,
+            this.uniqueId,
+            this._concepts,
+        );
+        return retitled;
+    }
+
+    withNodes(nodes: readonly PlotNode[]): PlotCell {
+        const withTheNodes = new PlotCell(
+            this.title,
+            nodes,
+            this.edges,
+            this.overview,
+            this.folded,
+            this.at,
+            this.uniqueId,
+            this._concepts,
+        );
+        return withTheNodes;
+    }
+
+    withEdges(edges: readonly PlotEdge[]): PlotCell {
+        const withTheEdges = new PlotCell(
+            this.title,
+            this.nodes,
+            edges,
+            this.overview,
+            this.folded,
+            this.at,
+            this.uniqueId,
+            this._concepts,
+        );
+        return withTheEdges;
+    }
+
     /** The plot referencing `concepts`, in their order. */
     withConcepts(concepts: readonly SalientConceptCell[]): PlotCell {
         const conceptIds = concepts.map((concept) => concept.uniqueId);

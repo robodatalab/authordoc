@@ -116,6 +116,18 @@ class PlotCell(Cell):
     def with_overview(self, overview: str) -> PlotCell:
         return replace(self, overview=overview)
 
+    def with_title(self, title: str) -> PlotCell:
+        retitled = replace(self, title=title)
+        return retitled
+
+    def with_nodes(self, nodes: list[PlotNode]) -> PlotCell:
+        with_the_nodes = replace(self, nodes=nodes)
+        return with_the_nodes
+
+    def with_edges(self, edges: list[PlotEdge]) -> PlotCell:
+        with_the_edges = replace(self, edges=edges)
+        return with_the_edges
+
     def with_concepts(self, concepts: Sequence[SalientConceptCell]) -> PlotCell:
         """The plot referencing `concepts`, in their order."""
         concept_ids = [concept.unique_id for concept in concepts]

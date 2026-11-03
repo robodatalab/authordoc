@@ -742,6 +742,38 @@ class PlotConcepts(unittest.TestCase):
         motherhood, promise = document.salient_concepts()
         self.assertEqual(concepts, [promise, motherhood])
 
+    def test_are_kept_when_the_plot_is_retitled(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+
+        retitled = plot.with_title("A mother")
+
+        concepts = retitled.concepts(document)
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual((retitled.title, concepts), ("A mother", [promise, motherhood]))
+
+    def test_are_kept_when_the_events_change(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+        nodes = [PlotNode("e1", None, "1", "earth", "Varn calls her daughter.")]
+
+        with_the_nodes = plot.with_nodes(nodes)
+
+        concepts = with_the_nodes.concepts(document)
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual((with_the_nodes.nodes, concepts), (nodes, [promise, motherhood]))
+
+    def test_are_kept_when_the_edges_change(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+        edges = [PlotEdge("x1", "e1", "e2")]
+
+        with_the_edges = plot.with_edges(edges)
+
+        concepts = with_the_edges.concepts(document)
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual((with_the_edges.edges, concepts), (edges, [promise, motherhood]))
+
 
 class StoryWordRanges(unittest.TestCase):
     @parameterized.expand([
