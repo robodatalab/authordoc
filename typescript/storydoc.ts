@@ -99,6 +99,15 @@ export class Document {
         return this.cells.find((cell) => cell.uniqueId === cellId);
     }
 
+    /**
+     * Puts `cell` in the place of the cell with id `cellId`; nothing changes
+     * when the document has no such cell. The lines every cell is written on are
+     * the ones last read, until the document is read again.
+     */
+    updateCell(cellId: string, cell: Cell): void {
+        this.cells = this.cells.map((held) => (held.uniqueId === cellId ? cell : held));
+    }
+
     salientConcepts(): SalientConceptCell[] {
         return this.cells.filter((cell) => cell instanceof SalientConceptCell);
     }

@@ -178,6 +178,36 @@ class Asking(unittest.TestCase):
         self.assertEqual(document.title, "Anonymous")
 
 
+class UpdatingACell(unittest.TestCase):
+    def setUp(self) -> None:
+        self.document = Document.from_cells(
+            [
+                MarkdownCell("The lantern had gone out.", False, None, "m1"),
+                MarkdownCell("The door stood open.", False, None, "m2"),
+            ]
+        )
+
+    def test_puts_the_cell_in_the_place_of_the_one_with_its_id(self) -> None:
+        lantern = self.document.cell_with_id("m1")
+        assert lantern is not None
+        lit = lantern.with_source("The lantern was lit.")
+
+        self.document.update_cell("m1", lit)
+
+        self.assertEqual(
+            [cell.source for cell in self.document.cells],
+            ["The lantern was lit.", "The door stood open."],
+        )
+        self.assertIn("The lantern was lit.", self.document.text)
+
+    def test_changes_nothing_when_no_cell_has_the_id(self) -> None:
+        cells_before = list(self.document.cells)
+
+        self.document.update_cell("m3", MarkdownCell("A bell rang."))
+
+        self.assertEqual(self.document.cells, cells_before)
+
+
 class Chapters(unittest.TestCase):
     def test_each_chapter_carries_the_prose_written_under_it(self) -> None:
         document = Document.from_cells(

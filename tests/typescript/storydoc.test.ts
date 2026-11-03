@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { Document } from "../../typescript/storydoc";
+import { MarkdownCell } from "../../typescript/cells/markdown_cell";
 import {
     SalientConceptCell,
     SalientConceptReference,
@@ -261,6 +262,37 @@ describe("a plot's edges", () => {
         const plot = document.getPlotOfEdge(new PlotEdge("x2", "e3", "e4"));
 
         expect(plot.title).toBe("The bell");
+    });
+});
+
+describe("updating a cell", () => {
+    const writtenDocument = () =>
+        Document.fromCells([
+            new MarkdownCell("The lantern had gone out.", false, null, "m1"),
+            new MarkdownCell("The door stood open.", false, null, "m2"),
+        ]);
+
+    it("puts the cell in the place of the one with its id", () => {
+        const document = writtenDocument();
+        const lantern = document.cellWithId("m1") as MarkdownCell;
+        const lit = lantern.withSource("The lantern was lit.");
+
+        document.updateCell("m1", lit);
+
+        expect(document.cells.map((cell) => cell.source)).toEqual([
+            "The lantern was lit.",
+            "The door stood open.",
+        ]);
+        expect(document.text).toContain("The lantern was lit.");
+    });
+
+    it("changes nothing when no cell has the id", () => {
+        const document = writtenDocument();
+        const cellsBefore = [...document.cells];
+
+        document.updateCell("m3", new MarkdownCell("A bell rang."));
+
+        expect(document.cells).toEqual(cellsBefore);
     });
 });
 
