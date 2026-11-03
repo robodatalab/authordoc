@@ -3,7 +3,21 @@ name: tests
 on:
     pull_request:
         branches: [main]
-    workflow_call:
+    push:
+        branches: [main]
+        paths:
+            - "authordoc/**"
+            - "typescript/**"
+            - "tests/python/**"
+            - "tests/typescript/**"
+            - "tests/storydoc_corpus.json"
+            - "pyproject.toml"
+            - "package.json"
+            - "package-lock.json"
+            - "tsconfig.json"
+            - ".github/workflows/tests.yaml"
+            - ".github/workflows/npm_publish.yaml"
+            - ".github/workflows/pypi_publish.yaml"
 
 jobs:
     python:
@@ -34,3 +48,114 @@ jobs:
                   node-version: 24
             - run: npm ci
             - run: npm test
+
+    # Bumps every package that changed since its last version tag in a single
+    # commit, tags each new version, and dispatches that package's publish
+    # workflow on the tag. A version whose tag does not exist yet (set by hand)
+    # is tagged and published as it is. Runs one at a time on the latest main,
+    # so each run sees the versions and tags the previous one pushed.
+    version:
+        needs: [python, typescript]
+        if: github.event_name == 'push'
+        runs-on: ubuntu-latest
+        concurrency:
+            group: version
+            cancel-in-progress: false
+        permissions:
+            contents: write
+            actions: write
+        steps:
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  ref: main
+                  fetch-depth: 0
+            - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+              with:
+                  node-version: 24
+            - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+              with:
+                  enable-cache: false
+            - id: npm
+              run: |
+                  CURRENT=$(node -p "require('./package.json').version")
+                  TAG="npm-v$CURRENT"
+                  RELEASE=true
+                  BUMPED=false
+                  if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+                    if git diff --quiet "$TAG" HEAD -- \
+                        typescript tests/typescript tests/storydoc_corpus.json \
+                        package.json package-lock.json tsconfig.json \
+                        .github/workflows/tests.yaml .github/workflows/npm_publish.yaml; then
+                      RELEASE=false
+                    else
+                      npm version patch --no-git-tag-version
+                      BUMPED=true
+                    fi
+                  fi
+                  VERSION=$(node -p "require('./package.json').version")
+                  {
+                    echo "release=$RELEASE"
+                    echo "bumped=$BUMPED"
+                    echo "version=$VERSION"
+                  } >> "$GITHUB_OUTPUT"
+            - id: pypi
+              run: |
+                  CURRENT=$(uv version --short)
+                  TAG="pypi-v$CURRENT"
+                  RELEASE=true
+                  BUMPED=false
+                  if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+                    if git diff --quiet "$TAG" HEAD -- \
+                        authordoc tests/python tests/storydoc_corpus.json \
+                        pyproject.toml \
+                        .github/workflows/tests.yaml .github/workflows/pypi_publish.yaml; then
+                      RELEASE=false
+                    else
+                      uv version --bump patch --frozen
+                      BUMPED=true
+                    fi
+                  fi
+                  VERSION=$(uv version --short)
+                  {
+                    echo "release=$RELEASE"
+                    echo "bumped=$BUMPED"
+                    echo "version=$VERSION"
+                  } >> "$GITHUB_OUTPUT"
+            - env:
+                  GH_TOKEN: ${{ github.token }}
+                  NPM_RELEASE: ${{ steps.npm.outputs.release }}
+                  NPM_BUMPED: ${{ steps.npm.outputs.bumped }}
+                  NPM_VERSION: ${{ steps.npm.outputs.version }}
+                  PYPI_RELEASE: ${{ steps.pypi.outputs.release }}
+                  PYPI_BUMPED: ${{ steps.pypi.outputs.bumped }}
+                  PYPI_VERSION: ${{ steps.pypi.outputs.version }}
+              run: |
+                  REFS=()
+                  if ! git diff --quiet; then
+                    MESSAGE=""
+                    if [ "$NPM_BUMPED" = "true" ]; then MESSAGE="npm version $NPM_VERSION"; fi
+                    if [ "$PYPI_BUMPED" = "true" ]; then MESSAGE="${MESSAGE:+$MESSAGE, }pypi version $PYPI_VERSION"; fi
+                    git config user.name "github-actions[bot]"
+                    git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                    git commit -am "$MESSAGE"
+                    git pull --rebase origin main
+                    REFS+=("HEAD:main")
+                  fi
+                  if [ "$NPM_RELEASE" = "true" ]; then
+                    git tag "npm-v$NPM_VERSION"
+                    REFS+=("npm-v$NPM_VERSION")
+                  fi
+                  if [ "$PYPI_RELEASE" = "true" ]; then
+                    git tag "pypi-v$PYPI_VERSION"
+                    REFS+=("pypi-v$PYPI_VERSION")
+                  fi
+                  if [ "${#REFS[@]}" -eq 0 ]; then
+                    exit 0
+                  fi
+                  git push --atomic origin "${REFS[@]}"
+                  if [ "$NPM_RELEASE" = "true" ]; then
+                    gh workflow run npm_publish.yaml --ref "npm-v$NPM_VERSION"
+                  fi
+                  if [ "$PYPI_RELEASE" = "true" ]; then
+                    gh workflow run pypi_publish.yaml --ref "pypi-v$PYPI_VERSION"
+                  fi
