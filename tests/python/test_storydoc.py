@@ -783,6 +783,40 @@ class PlotEdges(unittest.TestCase):
         self.assertEqual(plot.title, "The bell")
 
 
+class PlotNodes(unittest.TestCase):
+    def setUp(self) -> None:
+        the_door = PlotCell(
+            "The door",
+            [PlotNode("e1", None), PlotNode("e2", None)],
+            [PlotEdge("x1", "e1", "e2")],
+            "",
+            False,
+            None,
+            "p1",
+        )
+        the_bell = PlotCell(
+            "The bell",
+            [PlotNode("e3", None), PlotNode("e4", None)],
+            [PlotEdge("x2", "e3", "e4")],
+            "",
+            False,
+            None,
+            "p2",
+        )
+        self.document = Document.from_cells([the_door, the_bell])
+
+    @parameterized.expand(
+        [
+            ("in_the_first_plot", PlotNode("e1", None), "The door"),
+            ("in_the_second_plot", PlotNode("e4", None), "The bell"),
+        ]
+    )
+    def test_belong_to_the_plot_that_has_them(self, _, node: PlotNode, expected_title: str) -> None:
+        plot = self.document.get_plot_of_node(node)
+
+        self.assertEqual(plot.title, expected_title)
+
+
 class PlotEdgesOfAnEvent(unittest.TestCase):
     def setUp(self) -> None:
         # e1 leads to e2 and to e3, and e2 leads to e3.

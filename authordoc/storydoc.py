@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import TypeVar
 
 from authordoc.cells.cell import Cell
-from authordoc.cells.plot_cell import PlotCell, PlotEdge
+from authordoc.cells.plot_cell import PlotCell, PlotEdge, PlotNode
 from authordoc.cells.salient_concept_cell import SalientConceptCell
 from authordoc.cells.title_page_cell import TitlePageCell
 from authordoc.parser import marker_for, parse
@@ -138,6 +138,10 @@ class Document:
 
     def get_plot_of_edge(self, edge: PlotEdge) -> PlotCell:
         plot = next(plot for plot in self.plots() if edge in plot.edges)
+        return plot
+
+    def get_plot_of_node(self, node: PlotNode) -> PlotCell:
+        plot = next(plot for plot in self.plots() if node in plot.nodes)
         return plot
 
     def __str__(self) -> str:
