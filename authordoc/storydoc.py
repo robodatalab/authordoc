@@ -57,10 +57,9 @@ class Document:
         out and read back, so every cell is as a fresh read of the file gives it,
         with the lines it is written on.
 
-        Use it to build a document, to add, remove or reorder cells, or when the
-        document you hold must stay as it is: no document is changed. It writes
-        and reads the whole document. To change one cell of a document you hold,
-        leaving every cell where it is, use `update_cell`."""
+        Use it to build a document, or to add, remove or reorder cells. To replace
+        one cell, every other cell staying where it is, use `with_cell`. No
+        document is changed: the one you hold stays as it is."""
         written = cls("", path)
         written.cells = list(cells)
         return cls(written.text, path)
@@ -106,17 +105,18 @@ class Document:
     def cell_with_id(self, cell_id: str) -> Cell | None:
         return next((cell for cell in self.cells if cell.unique_id == cell_id), None)
 
-    def update_cell(self, cell: Cell) -> None:
-        """Puts `cell` in the place of the cell with its id, in this document, so
-        that whoever holds the document sees the change; nothing changes when the
-        document has no cell with that id.
+    def with_cell(self, cell: Cell) -> Document:
+        """A new document with `cell` in the place of the cell with its id; one with
+        the same cells when this document has no cell with that id. Like every
+        document `from_cells` makes, every cell is as a fresh read of the file
+        gives it, with the lines it is written on.
 
-        Use it to change one cell of a document you hold, every cell staying where
-        it is. Nothing is read again: the lines every cell is written on stay the
-        ones last read, until the document is read again. To add, remove or
-        reorder cells, to get a new document and leave this one as it is, or to
-        have the lines of every cell right, use `from_cells`."""
-        self.cells = [cell if held.unique_id == cell.unique_id else held for held in self.cells]
+        Use it to replace one cell, every other cell staying where it is. To add,
+        remove or reorder cells, use `from_cells`. No document is changed: the one
+        you hold stays as it is."""
+        cells = [cell if held.unique_id == cell.unique_id else held for held in self.cells]
+        with_the_cell = Document.from_cells(cells, self.path)
+        return with_the_cell
 
     def salient_concepts(self) -> list[SalientConceptCell]:
         return [cell for cell in self.cells if isinstance(cell, SalientConceptCell)]
