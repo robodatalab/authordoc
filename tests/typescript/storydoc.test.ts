@@ -265,34 +265,44 @@ describe("a plot's edges", () => {
     });
 });
 
-describe("updating a cell", () => {
+describe("replacing a cell", () => {
     const writtenDocument = () =>
         Document.fromCells([
             new MarkdownCell("The lantern had gone out.", false, null, "m1"),
             new MarkdownCell("The door stood open.", false, null, "m2"),
         ]);
 
-    it("puts the cell in the place of the one with its id", () => {
+    it("gives a new document with the cell in the place of the one with its id", () => {
         const document = writtenDocument();
         const lantern = document.cellWithId("m1") as MarkdownCell;
         const lit = lantern.withSource("The lantern was lit.");
 
-        document.updateCell(lit);
+        const replaced = document.withCell(lit);
 
-        expect(document.cells.map((cell) => cell.source)).toEqual([
+        expect(replaced.cells.map((cell) => cell.source)).toEqual([
             "The lantern was lit.",
             "The door stood open.",
         ]);
-        expect(document.text).toContain("The lantern was lit.");
+        expect(replaced.text).toContain("The lantern was lit.");
     });
 
-    it("changes nothing when no cell has the id", () => {
+    it("leaves the document it is asked of as it was", () => {
         const document = writtenDocument();
         const cellsBefore = [...document.cells];
+        const lit = new MarkdownCell("The lantern was lit.", false, null, "m1");
 
-        document.updateCell(new MarkdownCell("A bell rang.", false, null, "m3"));
+        document.withCell(lit);
 
         expect(document.cells).toEqual(cellsBefore);
+    });
+
+    it("gives the same cells when no cell has the id", () => {
+        const document = writtenDocument();
+        const bell = new MarkdownCell("A bell rang.", false, null, "m3");
+
+        const replaced = document.withCell(bell);
+
+        expect(replaced.cells).toEqual(document.cells);
     });
 });
 

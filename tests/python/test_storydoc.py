@@ -178,7 +178,7 @@ class Asking(unittest.TestCase):
         self.assertEqual(document.title, "Anonymous")
 
 
-class UpdatingACell(unittest.TestCase):
+class ReplacingACell(unittest.TestCase):
     def setUp(self) -> None:
         self.document = Document.from_cells(
             [
@@ -187,25 +187,33 @@ class UpdatingACell(unittest.TestCase):
             ]
         )
 
-    def test_puts_the_cell_in_the_place_of_the_one_with_its_id(self) -> None:
+    def test_gives_a_new_document_with_the_cell_in_the_place_of_the_one_with_its_id(self) -> None:
         lantern = self.document.cell_with_id("m1")
         assert lantern is not None
         lit = lantern.with_source("The lantern was lit.")
 
-        self.document.update_cell(lit)
+        replaced = self.document.with_cell(lit)
 
         self.assertEqual(
-            [cell.source for cell in self.document.cells],
+            [cell.source for cell in replaced.cells],
             ["The lantern was lit.", "The door stood open."],
         )
-        self.assertIn("The lantern was lit.", self.document.text)
+        self.assertIn("The lantern was lit.", replaced.text)
 
-    def test_changes_nothing_when_no_cell_has_the_id(self) -> None:
+    def test_leaves_the_document_it_is_asked_of_as_it_was(self) -> None:
         cells_before = list(self.document.cells)
+        lit = MarkdownCell("The lantern was lit.", False, None, "m1")
 
-        self.document.update_cell(MarkdownCell("A bell rang.", False, None, "m3"))
+        self.document.with_cell(lit)
 
         self.assertEqual(self.document.cells, cells_before)
+
+    def test_gives_the_same_cells_when_no_cell_has_the_id(self) -> None:
+        bell = MarkdownCell("A bell rang.", False, None, "m3")
+
+        replaced = self.document.with_cell(bell)
+
+        self.assertEqual(replaced.cells, self.document.cells)
 
 
 class Chapters(unittest.TestCase):

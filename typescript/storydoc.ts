@@ -56,10 +56,9 @@ export class Document {
      * and read back, so every cell is as a fresh read of the file gives it, with
      * the lines it is written on.
      *
-     * Use it to build a document, to add, remove or reorder cells, or when the
-     * document you hold must stay as it is: no document is changed. It writes
-     * and reads the whole document. To change one cell of a document you hold,
-     * leaving every cell where it is, use `updateCell`.
+     * Use it to build a document, or to add, remove or reorder cells. To
+     * replace one cell, every other cell staying where it is, use `withCell`.
+     * No document is changed: the one you hold stays as it is.
      */
     static fromCells(
         cells: readonly Cell[],
@@ -110,18 +109,19 @@ export class Document {
     }
 
     /**
-     * Puts `cell` in the place of the cell with its id, in this document, so
-     * that whoever holds the document sees the change; nothing changes when the
-     * document has no cell with that id.
+     * A new document with `cell` in the place of the cell with its id; one with
+     * the same cells when this document has no cell with that id. Like every
+     * document `fromCells` makes, every cell is as a fresh read of the file
+     * gives it, with the lines it is written on.
      *
-     * Use it to change one cell of a document you hold, every cell staying where
-     * it is. Nothing is read again: the lines every cell is written on stay the
-     * ones last read, until the document is read again. To add, remove or
-     * reorder cells, to get a new document and leave this one as it is, or to
-     * have the lines of every cell right, use `fromCells`.
+     * Use it to replace one cell, every other cell staying where it is. To add,
+     * remove or reorder cells, use `fromCells`. No document is changed: the one
+     * you hold stays as it is.
      */
-    updateCell(cell: Cell): void {
-        this.cells = this.cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
+    withCell(cell: Cell): Document {
+        const cells = this.cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
+        const withTheCell = Document.fromCells(cells, this.path);
+        return withTheCell;
     }
 
     salientConcepts(): SalientConceptCell[] {
