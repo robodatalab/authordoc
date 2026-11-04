@@ -15,6 +15,13 @@ import {
 } from "../../typescript/cells/plot_cell";
 import { StoryWordRange } from "../../typescript/cells/story_word_range";
 import { UnknownCell } from "../../typescript/cells/unknown_cell";
+import type { Cell } from "../../typescript/cells/cell";
+import { ChapterCell } from "../../typescript/cells/chapter_cell";
+import {
+    moveTheSectionDown,
+    moveTheSectionUp,
+    removeTheSection,
+} from "../../typescript/story_sections";
 import {
     StoryTextSpan,
     StoryWord,
@@ -411,6 +418,180 @@ describe("replacing a cell", () => {
 
         expect(replaced.cells).toEqual(document.cells);
     });
+});
+
+// The story's words: "She(0) saw(1) the(2) door.(3)" in c2, "He(4) heard(5)
+// the(6) bell.(7)" in c3. The concept points at "the bell.", the event at all of c3.
+const SHE_SAW = new MarkdownCell("She saw the door.", false, null, "c2");
+const HE_HEARD = new MarkdownCell("He heard the bell.", false, null, "c3");
+const IT_RANG = new MarkdownCell("It rang.", false, null, "c4");
+const THE_BELL = new SalientConceptCell(
+    "Bell",
+    [new SalientConceptReference("r1", new StoryWordRange(6, 7))],
+    "What he heard.",
+    false,
+    null,
+    "k1",
+);
+const THE_PLOT = new PlotCell(
+    "The bell",
+    [new PlotNode("n-bell", new StoryWordRange(4, 7))],
+    [],
+    "",
+    false,
+    null,
+    "p1",
+);
+
+describe("changing a document", () => {
+    const writtenDocument = () => Document.fromCells([SHE_SAW, HE_HEARD, THE_BELL, THE_PLOT]);
+
+    it.each([
+        [
+            "a word written before them moves them on",
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            [new SalientConceptReference("r1", new StoryWordRange(7, 8))],
+            new StoryWordRange(5, 8),
+        ],
+        [
+            "a word of theirs written over keeps them",
+            new MarkdownCell("He heard the bells.", false, null, "c3"),
+            [new SalientConceptReference("r1", new StoryWordRange(6, 7))],
+            new StoryWordRange(4, 7),
+        ],
+        [
+            "the words they point at deleted lose them",
+            new MarkdownCell("He heard", false, null, "c3"),
+            [],
+            new StoryWordRange(4, 5),
+        ],
+    ] as const)(
+        "with a cell keeps passages and events on their words: %s",
+        (_, cell, expectedReferences, expectedWords) => {
+            const document = writtenDocument();
+
+            const changed = document.withCell(cell);
+
+            const [concept] = changed.salientConcepts();
+            const [plot] = changed.plots();
+            const [event] = plot.nodes;
+            expect(concept.references).toEqual(expectedReferences);
+            expect(event.storyWordRange).toEqual(expectedWords);
+        },
+    );
+
+    it.each([
+        [
+            "a cell added before them moves them on",
+            [SHE_SAW, IT_RANG, HE_HEARD, THE_BELL, THE_PLOT],
+            [new SalientConceptReference("r1", new StoryWordRange(8, 9))],
+            new StoryWordRange(6, 9),
+        ],
+        [
+            "a cell before them taken out moves them back",
+            [HE_HEARD, THE_BELL, THE_PLOT],
+            [new SalientConceptReference("r1", new StoryWordRange(2, 3))],
+            new StoryWordRange(0, 3),
+        ],
+        [
+            "the cell they stand in moved takes them with it",
+            [HE_HEARD, SHE_SAW, THE_BELL, THE_PLOT],
+            [new SalientConceptReference("r1", new StoryWordRange(2, 3))],
+            new StoryWordRange(0, 3),
+        ],
+        ["the cell they stand in taken out loses them", [SHE_SAW, THE_BELL, THE_PLOT], [], null],
+    ] as const)(
+        "with cells keeps passages and events on their words: %s",
+        (_, cells, expectedReferences, expectedWords) => {
+            const document = writtenDocument();
+
+            const changed = document.withCells(cells);
+
+            const [concept] = changed.salientConcepts();
+            const [plot] = changed.plots();
+            const [event] = plot.nodes;
+            expect(concept.references).toEqual(expectedReferences);
+            expect(event.storyWordRange).toEqual(expectedWords);
+        },
+    );
+
+    it("has cells that are a copy that changes no document", () => {
+        const document = writtenDocument();
+        const cells = document.cells;
+
+        // @ts-expect-error: a document's cells are read-only.
+        cells.splice(0);
+
+        expect(document.cells).toHaveLength(4);
+    });
+
+    it("has cells that cannot be set", () => {
+        const document = writtenDocument();
+
+        expect(() => {
+            // @ts-expect-error: a document has no setter for its cells.
+            document.cells = [];
+        }).toThrow(TypeError);
+    });
+
+    it("has a path that cannot be set", () => {
+        const document = writtenDocument();
+
+        expect(() => {
+            // @ts-expect-error: a document has no setter for its path.
+            document.path = "elsewhere.author";
+        }).toThrow(TypeError);
+    });
+});
+
+describe("changing a section", () => {
+    const writtenDocument = () =>
+        Document.fromCells([
+            new ChapterCell("One", "", false, null, "ch1"),
+            SHE_SAW,
+            new ChapterCell("Two", "", false, null, "ch2"),
+            HE_HEARD,
+            THE_BELL,
+            THE_PLOT,
+        ]);
+
+    it.each([
+        [
+            "moved up takes its passages and events with it",
+            moveTheSectionUp,
+            "ch2",
+            [new SalientConceptReference("r1", new StoryWordRange(2, 3))],
+            new StoryWordRange(0, 3),
+        ],
+        [
+            "moved down moves the passages and events after it back",
+            moveTheSectionDown,
+            "ch1",
+            [new SalientConceptReference("r1", new StoryWordRange(2, 3))],
+            new StoryWordRange(0, 3),
+        ],
+        [
+            "removed moves the passages and events after it back",
+            removeTheSection,
+            "ch1",
+            [new SalientConceptReference("r1", new StoryWordRange(2, 3))],
+            new StoryWordRange(0, 3),
+        ],
+        ["removed loses the passages and events in it", removeTheSection, "ch2", [], null],
+    ] as const)(
+        "keeps passages and events on their words: %s",
+        (_, change, cellId, expectedReferences, expectedWords) => {
+            const document = writtenDocument();
+
+            const changed = change(document, cellId);
+
+            const [concept] = changed.salientConcepts();
+            const [plot] = changed.plots();
+            const [event] = plot.nodes;
+            expect(concept.references).toEqual(expectedReferences);
+            expect(event.storyWordRange).toEqual(expectedWords);
+        },
+    );
 });
 
 describe("getting a cell", () => {

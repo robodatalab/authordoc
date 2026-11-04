@@ -35,20 +35,22 @@ import { Cell, splitlines } from "./cells/cell";
 import { PlotCell, PlotEdge, PlotNode } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
+import { AuthorDocDiff } from "./diff";
 import { markerFor, parse } from "./parser";
+import { PassagesSynchronizer } from "./synchronizers/passages_synchronizer";
 import { MarkerAttributes } from "./visitors/marker_attributes";
 
 export const EXTENSION = ".author";
 
 /** An .author document */
 export class Document {
-    cells: Cell[];
+    private _cells: readonly Cell[];
 
     constructor(
         text: string,
-        readonly path: string | null = null,
+        private readonly _path: string | null = null,
     ) {
-        this.cells = parse(text);
+        this._cells = parse(text);
     }
 
     /**
@@ -56,18 +58,28 @@ export class Document {
      * and read back, so every cell is as a fresh read of the file gives it, with
      * the lines it is written on.
      *
-     * Use it to build a document, or to add, remove or reorder cells. To
-     * replace one cell, every other cell staying where it is, use `withCell`.
-     * No document is changed: the one you hold stays as it is.
+     * Use it to build a document. To change one, use `withCells` or `withCell`,
+     * which keep what points at the story's words in step.
      */
     static fromCells(
         cells: readonly Cell[],
         path: string | null = null,
     ): Document {
         const written = new Document("", path);
-        written.cells = [...cells];
+        written._cells = [...cells];
         const text = written.text;
-        return new Document(text, path);
+        const built = new Document(text, path);
+        return built;
+    }
+
+    get path(): string | null {
+        return this._path;
+    }
+
+    /** The cells, in their order: a copy, so changing it changes no document. */
+    get cells(): readonly Cell[] {
+        const cells = [...this._cells];
+        return cells;
     }
 
     /** The document as text, such that `parse(text) == cells`. */
@@ -75,7 +87,7 @@ export class Document {
     get text(): string {
         const markerAttributes = new MarkerAttributes();
         const out: string[] = [];
-        for (const cell of this.cells) {
+        for (const cell of this._cells) {
             const marker = markerFor(cell, markerAttributes);
             out.push(marker);
             out.push("");
@@ -95,7 +107,7 @@ export class Document {
 
     get titlePage(): TitlePageCell {
         return (
-            this.cells.find((cell) => cell instanceof TitlePageCell) ??
+            this._cells.find((cell) => cell instanceof TitlePageCell) ??
             new TitlePageCell()
         );
     }
@@ -105,7 +117,7 @@ export class Document {
     }
 
     cellWithId(cellId: string): Cell | undefined {
-        return this.cells.find((cell) => cell.uniqueId === cellId);
+        return this._cells.find((cell) => cell.uniqueId === cellId);
     }
 
     /**
@@ -116,34 +128,48 @@ export class Document {
         cellType: abstract new (...args: never[]) => C,
         kind: string,
     ): C | undefined {
-        const found = this.cells.find(
+        const found = this._cells.find(
             (cell): cell is C => cell instanceof cellType && cell.kind === kind,
         );
         return found;
     }
 
     /**
-     * A new document with `cell` in the place of the cell with its id; one with
-     * the same cells when this document has no cell with that id. Like every
-     * document `fromCells` makes, every cell is as a fresh read of the file
-     * gives it, with the lines it is written on.
+     * A new document made of `cells`, in their order, in which everything that
+     * points at the story's words, a concept's passages and an event's words,
+     * points at the same words it pointed at in this one; what points at words
+     * that are gone points at none. Like every document `fromCells` makes, every
+     * cell is as a fresh read of the file gives it.
      *
-     * Use it to replace one cell, every other cell staying where it is. To add,
-     * remove or reorder cells, use `fromCells`. No document is changed: the one
-     * you hold stays as it is.
+     * Use it to add, remove, reorder or rewrite cells. No document is changed:
+     * the one you hold stays as it is.
+     */
+    withCells(cells: readonly Cell[]): Document {
+        const written = Document.fromCells(cells, this._path);
+        const change = AuthorDocDiff.diff(this, written);
+        const synchronizer = new PassagesSynchronizer();
+        const passagesMoved = synchronizer.synchronize(this, change);
+        const synchronized = passagesMoved.applyTheDiff(written);
+        return synchronized;
+    }
+
+    /**
+     * A new document with `cell` in the place of the cell with its id, kept in
+     * step as `withCells` keeps it; one with the same cells when this document
+     * has no cell with that id.
      */
     withCell(cell: Cell): Document {
-        const cells = this.cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
-        const withTheCell = Document.fromCells(cells, this.path);
+        const cells = this._cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
+        const withTheCell = this.withCells(cells);
         return withTheCell;
     }
 
     salientConcepts(): SalientConceptCell[] {
-        return this.cells.filter((cell) => cell instanceof SalientConceptCell);
+        return this._cells.filter((cell) => cell instanceof SalientConceptCell);
     }
 
     plots(): PlotCell[] {
-        return this.cells.filter((cell) => cell instanceof PlotCell);
+        return this._cells.filter((cell) => cell instanceof PlotCell);
     }
 
     getPlotOfEdge(edge: PlotEdge): PlotCell {
@@ -186,7 +212,7 @@ export class Document {
     /** The cell `line` falls in. */
 
     cellAt(line: number): Cell | null {
-        for (const cell of this.cells) {
+        for (const cell of this._cells) {
             if (cell.at && cell.at[0] <= line && line <= cell.at[1]) {
                 return cell;
             }

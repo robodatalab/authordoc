@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -14,6 +15,7 @@ from authordoc.iterators.prose_cells_iterator import ProseCellsIterator
 from authordoc.iterators.story_lines_iterator import StoryLinesIterator
 from authordoc.iterators.story_words_iterator import StoryWordsIterator
 from authordoc.storydoc import Document
+from authordoc.story_sections import move_the_section_down, move_the_section_up, remove_the_section
 from authordoc.cells.blurb_cell import BlurbCell
 from authordoc.cells.cell import Cell
 from authordoc.cells.chapter_cell import ChapterCell
@@ -216,6 +218,175 @@ class ReplacingACell(unittest.TestCase):
         replaced = self.document.with_cell(bell)
 
         self.assertEqual(replaced.cells, self.document.cells)
+
+
+# The story's words: "She(0) saw(1) the(2) door.(3)" in c2, "He(4) heard(5)
+# the(6) bell.(7)" in c3. The concept points at "the bell.", the event at all of c3.
+SHE_SAW = MarkdownCell("She saw the door.", False, None, "c2")
+HE_HEARD = MarkdownCell("He heard the bell.", False, None, "c3")
+IT_RANG = MarkdownCell("It rang.", False, None, "c4")
+THE_BELL = SalientConceptCell(
+    "Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"
+)
+THE_PLOT = PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1")
+
+
+class ChangingADocument(unittest.TestCase):
+    def setUp(self) -> None:
+        self.document = Document.from_cells([SHE_SAW, HE_HEARD, THE_BELL, THE_PLOT])
+
+    @parameterized.expand(
+        [
+            (
+                "a_word_written_before_them_moves_them_on",
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                [SalientConceptReference("r1", StoryWordRange(7, 8))],
+                StoryWordRange(5, 8),
+            ),
+            (
+                "a_word_of_theirs_written_over_keeps_them",
+                MarkdownCell("He heard the bells.", False, None, "c3"),
+                [SalientConceptReference("r1", StoryWordRange(6, 7))],
+                StoryWordRange(4, 7),
+            ),
+            (
+                "the_words_they_point_at_deleted_lose_them",
+                MarkdownCell("He heard", False, None, "c3"),
+                [],
+                StoryWordRange(4, 5),
+            ),
+        ]
+    )
+    def test_with_a_cell_keeps_passages_and_events_on_their_words(
+        self, _, cell: MarkdownCell, expected_references: list[SalientConceptReference], expected_words: StoryWordRange
+    ) -> None:
+        changed = self.document.with_cell(cell)
+
+        (concept,) = changed.salient_concepts()
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(concept.references, expected_references)
+        self.assertEqual(event.story_word_range, expected_words)
+
+    @parameterized.expand(
+        [
+            (
+                "a_cell_added_before_them_moves_them_on",
+                [SHE_SAW, IT_RANG, HE_HEARD, THE_BELL, THE_PLOT],
+                [SalientConceptReference("r1", StoryWordRange(8, 9))],
+                StoryWordRange(6, 9),
+            ),
+            (
+                "a_cell_before_them_taken_out_moves_them_back",
+                [HE_HEARD, THE_BELL, THE_PLOT],
+                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                StoryWordRange(0, 3),
+            ),
+            (
+                "the_cell_they_stand_in_moved_takes_them_with_it",
+                [HE_HEARD, SHE_SAW, THE_BELL, THE_PLOT],
+                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                StoryWordRange(0, 3),
+            ),
+            (
+                "the_cell_they_stand_in_taken_out_loses_them",
+                [SHE_SAW, THE_BELL, THE_PLOT],
+                [],
+                None,
+            ),
+        ]
+    )
+    def test_with_cells_keeps_passages_and_events_on_their_words(
+        self,
+        _,
+        cells: list[Cell],
+        expected_references: list[SalientConceptReference],
+        expected_words: StoryWordRange | None,
+    ) -> None:
+        changed = self.document.with_cells(cells)
+
+        (concept,) = changed.salient_concepts()
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(concept.references, expected_references)
+        self.assertEqual(event.story_word_range, expected_words)
+
+    def test_its_cells_are_a_copy_that_changes_no_document(self) -> None:
+        cells = self.document.cells
+
+        cells.clear()
+
+        self.assertEqual(self.document.cells, [SHE_SAW, HE_HEARD, THE_BELL, THE_PLOT])
+
+    def test_its_cells_cannot_be_set(self) -> None:
+        with self.assertRaises(AttributeError):
+            self.document.cells = []  # type: ignore[misc]
+
+    def test_its_path_cannot_be_set(self) -> None:
+        with self.assertRaises(AttributeError):
+            self.document.path = Path("elsewhere.author")  # type: ignore[misc]
+
+
+class ChangingASection(unittest.TestCase):
+    def setUp(self) -> None:
+        self.document = Document.from_cells(
+            [
+                ChapterCell("One", "", False, None, "ch1"),
+                SHE_SAW,
+                ChapterCell("Two", "", False, None, "ch2"),
+                HE_HEARD,
+                THE_BELL,
+                THE_PLOT,
+            ]
+        )
+
+    @parameterized.expand(
+        [
+            (
+                "moved_up_takes_its_passages_and_events_with_it",
+                move_the_section_up,
+                "ch2",
+                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                StoryWordRange(0, 3),
+            ),
+            (
+                "moved_down_moves_the_passages_and_events_after_it_back",
+                move_the_section_down,
+                "ch1",
+                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                StoryWordRange(0, 3),
+            ),
+            (
+                "removed_moves_the_passages_and_events_after_it_back",
+                remove_the_section,
+                "ch1",
+                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                StoryWordRange(0, 3),
+            ),
+            (
+                "removed_loses_the_passages_and_events_in_it",
+                remove_the_section,
+                "ch2",
+                [],
+                None,
+            ),
+        ]
+    )
+    def test_keeps_passages_and_events_on_their_words(
+        self,
+        _,
+        change: Callable[[Document, str], Document],
+        cell_id: str,
+        expected_references: list[SalientConceptReference],
+        expected_words: StoryWordRange | None,
+    ) -> None:
+        changed = change(self.document, cell_id)
+
+        (concept,) = changed.salient_concepts()
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(concept.references, expected_references)
+        self.assertEqual(event.story_word_range, expected_words)
 
 
 class GettingACell(unittest.TestCase):
