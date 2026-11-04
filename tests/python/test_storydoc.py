@@ -783,6 +783,56 @@ class PlotEdges(unittest.TestCase):
         self.assertEqual(plot.title, "The bell")
 
 
+class PlotEdgesOfAnEvent(unittest.TestCase):
+    def setUp(self) -> None:
+        # e1 leads to e2 and to e3, and e2 leads to e3.
+        self.plot = PlotCell(
+            "The door",
+            [PlotNode("e1", None), PlotNode("e2", None), PlotNode("e3", None)],
+            [PlotEdge("x1", "e1", "e2"), PlotEdge("x2", "e1", "e3"), PlotEdge("x3", "e2", "e3")],
+            "",
+            False,
+            None,
+            "p1",
+        )
+
+    @parameterized.expand(
+        [
+            ("none_lead_to_the_first_event", PlotNode("e1", None), []),
+            ("one_leads_to_an_event", PlotNode("e2", None), [PlotEdge("x1", "e1", "e2")]),
+            (
+                "two_lead_to_an_event",
+                PlotNode("e3", None),
+                [PlotEdge("x2", "e1", "e3"), PlotEdge("x3", "e2", "e3")],
+            ),
+        ]
+    )
+    def test_inbound_are_the_edges_that_lead_to_the_event(
+        self, _, node: PlotNode, expected: list[PlotEdge]
+    ) -> None:
+        inbound = self.plot.inbound_edges(node)
+
+        self.assertEqual(inbound, expected)
+
+    @parameterized.expand(
+        [
+            (
+                "two_leave_an_event",
+                PlotNode("e1", None),
+                [PlotEdge("x1", "e1", "e2"), PlotEdge("x2", "e1", "e3")],
+            ),
+            ("one_leaves_an_event", PlotNode("e2", None), [PlotEdge("x3", "e2", "e3")]),
+            ("none_leave_the_last_event", PlotNode("e3", None), []),
+        ]
+    )
+    def test_outbound_are_the_edges_that_leave_the_event(
+        self, _, node: PlotNode, expected: list[PlotEdge]
+    ) -> None:
+        outbound = self.plot.outbound_edges(node)
+
+        self.assertEqual(outbound, expected)
+
+
 class PlotConcepts(unittest.TestCase):
     THE_STORY = (
         '<!-- cell: salient-concept id="k1" title="Motherhood" -->\n'
