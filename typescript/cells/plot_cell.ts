@@ -95,19 +95,27 @@ export class PlotEdge {
 
 export class PlotCell extends Cell {
     readonly kind = PLOT;
+    readonly nodes: readonly PlotNode[];
+    readonly edges: readonly PlotEdge[];
+    // The ids of the salient concepts the plot references.
+    readonly _concepts: readonly string[];
 
     constructor(
         readonly title: string = "",
-        readonly nodes: readonly PlotNode[] = [],
-        readonly edges: readonly PlotEdge[] = [],
+        nodes: readonly PlotNode[] = [],
+        edges: readonly PlotEdge[] = [],
         readonly overview: string = "",
         folded: boolean = false,
         at: readonly [number, number] | null = null,
         uniqueId: string = crypto.randomUUID(),
-        // The ids of the salient concepts the plot references.
-        readonly _concepts: readonly string[] = [],
+        concepts: readonly string[] = [],
     ) {
         super(writtenPlotBody(overview, nodes), folded, at, uniqueId);
+        // Kept as frozen copies, whatever arrays they come as, so that no one
+        // changes them in place.
+        this.nodes = Object.freeze([...nodes]);
+        this.edges = Object.freeze([...edges]);
+        this._concepts = Object.freeze([...concepts]);
     }
 
     /** The plot whose body is `body`: its overview and events read from it. */

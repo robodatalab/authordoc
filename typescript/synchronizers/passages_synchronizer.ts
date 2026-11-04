@@ -1,4 +1,3 @@
-import type { AuthorDocChangeVisitor } from "../author_doc_change_visitor";
 import type { AuthorDocSynchronizer } from "../author_doc_synchronizer";
 import { AuthorDocDiff } from "../diff";
 import { Document } from "../storydoc";
@@ -23,11 +22,6 @@ import { StoryWordRange } from "../cells/story_word_range";
 import type { TableOfContentsCell } from "../cells/table_of_contents_cell";
 import type { TitlePageCell } from "../cells/title_page_cell";
 import type { UnknownCell } from "../cells/unknown_cell";
-import type { CellAdded } from "../changes/cell_added";
-import type { CellHeaderChanged } from "../changes/cell_header_changed";
-import type { CellRemoved } from "../changes/cell_removed";
-import type { CellTextChanged } from "../changes/cell_text_changed";
-import type { CellsMoved } from "../changes/cells_moved";
 import {
     StoryWordsIterator,
     type StoryWord,
@@ -53,6 +47,10 @@ class WordsAnEditReplaced {
             this.endOfOldWords > range.firstWord
         );
     }
+}
+
+function sameRange(one: StoryWordRange | null, other: StoryWordRange): boolean {
+    return one !== null && one.firstWord === other.firstWord && one.lastWord === other.lastWord;
 }
 
 class WhereTheStoryWordsWent {
@@ -169,34 +167,30 @@ function whereTheStoryWordsWent(
     );
 }
 
-class CellTheChangeRewrites implements AuthorDocChangeVisitor<string | null> {
-    visitCellAdded(cellAdded: CellAdded): string {
-        return cellAdded.cell.uniqueId;
-    }
-
-    visitCellHeaderChanged(cellHeaderChanged: CellHeaderChanged): string {
-        return cellHeaderChanged.headerAfter.uniqueId;
-    }
-
-    visitCellRemoved(_cellRemoved: CellRemoved): null {
-        return null;
-    }
-
-    visitCellsMoved(_cellsMoved: CellsMoved): null {
-        return null;
-    }
-
-    visitCellTextChanged(_cellTextChanged: CellTextChanged): null {
-        return null;
-    }
-}
-
+/**
+ * A range the change leaves as it was counts the story's words as they stood
+ * before it, and moves with them; a range the change sets, new or different,
+ * counts them as they stand after it, and is kept as the change writes it. So
+ * the order the change writes its cells in makes no difference.
+ */
 class PassagesKeptInStep implements CellVisitor<Cell> {
-    constructor(private readonly whereTheWordsWent: WhereTheStoryWordsWent) {}
+    constructor(
+        private readonly before: Document,
+        private readonly whereTheWordsWent: WhereTheStoryWordsWent,
+    ) {}
 
     visitSalientConcept(cell: SalientConceptCell): SalientConceptCell {
+        const held = this.before.cellWithId(cell.uniqueId);
+        const referencesBefore = held instanceof SalientConceptCell ? held.references : [];
         const referencesKeptInStep: SalientConceptReference[] = [];
         for (const reference of cell.references) {
+            const referenceBefore = referencesBefore.find(
+                (before) => before.referenceId === reference.referenceId,
+            );
+            if (!sameRange(referenceBefore?.storyWordRange ?? null, reference.storyWordRange)) {
+                referencesKeptInStep.push(reference);
+                continue;
+            }
             const rangeKeptInStep = this.whereTheWordsWent.rangeKeptInStep(
                 reference.storyWordRange,
             );
@@ -221,8 +215,14 @@ class PassagesKeptInStep implements CellVisitor<Cell> {
     // An event outlives the words that told it: when they are gone, it is
     // simply told by none.
     visitPlot(cell: PlotCell): PlotCell {
+        const held = this.before.cellWithId(cell.uniqueId);
+        const nodesBefore = held instanceof PlotCell ? held.nodes : [];
         const nodesKeptInStep = cell.nodes.map((node) => {
-            if (node.storyWordRange === null) {
+            const nodeBefore = nodesBefore.find((before) => before.nodeId === node.nodeId);
+            if (
+                node.storyWordRange === null ||
+                !sameRange(nodeBefore?.storyWordRange ?? null, node.storyWordRange)
+            ) {
                 return node;
             }
             const rangeKeptInStep = this.whereTheWordsWent.rangeKeptInStep(
@@ -298,16 +298,10 @@ class PassagesKeptInStep implements CellVisitor<Cell> {
 export class PassagesSynchronizer implements AuthorDocSynchronizer {
     synchronize(before: Document, change: AuthorDocDiff): AuthorDocDiff {
         const after = change.applyTheDiff(before);
-        const cellTheChangeRewrites = new CellTheChangeRewrites();
-        const cellIdsTheChangeRewrites = change.changes.map((cellChange) =>
-            cellChange.accept(cellTheChangeRewrites),
-        );
         const whereTheWordsWent = whereTheStoryWordsWent(before, after);
-        const passagesKeptInStep = new PassagesKeptInStep(whereTheWordsWent);
+        const passagesKeptInStep = new PassagesKeptInStep(before, whereTheWordsWent);
         const cellsWithTheirPassagesInStep = after.cells.map((cell) =>
-            cellIdsTheChangeRewrites.includes(cell.uniqueId)
-                ? cell
-                : cell.accept<Cell>(passagesKeptInStep),
+            cell.accept<Cell>(passagesKeptInStep),
         );
         const documentWithItsPassagesInStep = Document.fromCells(
             cellsWithTheirPassagesInStep,

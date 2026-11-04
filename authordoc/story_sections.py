@@ -112,56 +112,71 @@ def _end_of_section(document: Document, section: CellsInASection) -> int:
     return stands_at + len(cells_held)
 
 
-def _move_section(document: Document, section: CellsInASection, lands: int) -> None:
+def _move_section(document: Document, section: CellsInASection, lands: int) -> Document:
     stands_at = _where_the_cell_stands(document, section.cell)
     cells_held = cells_within_a_section(section)
-    moved = document.cells[stands_at : stands_at + len(cells_held)]
-    del document.cells[stands_at : stands_at + len(cells_held)]
+    cells = document.cells
+    moved = cells[stands_at : stands_at + len(cells_held)]
+    del cells[stands_at : stands_at + len(cells_held)]
     lands_after_the_move = lands - len(cells_held) if lands > stands_at else lands
-    document.cells[lands_after_the_move:lands_after_the_move] = moved
+    cells[lands_after_the_move:lands_after_the_move] = moved
+    moved_document = document._with_cells_in_order(cells)
+    return moved_document
 
 
-def move_the_section_up(document: Document, cell_id: str) -> None:
+def move_the_section_up(document: Document, cell_id: str) -> Document:
+    """The document with the section the cell opens moved up past the section
+    before it; the same document when there is none to move past."""
     sections = cells_by_section(document.cells)
     standing = where_a_cell_stands(sections, cell_id)
     if standing is None:
-        return
+        return document
     stands_among_at = standing.among.index(standing.section)
     if stands_among_at > 0:
         goes_before = standing.among[stands_among_at - 1]
     elif standing.under:
         goes_before = standing.under[-1]
     else:
-        return
+        return document
     lands = _where_the_cell_stands(document, goes_before.cell)
-    _move_section(document, standing.section, lands)
+    moved = _move_section(document, standing.section, lands)
+    return moved
 
 
-def move_the_section_down(document: Document, cell_id: str) -> None:
+def move_the_section_down(document: Document, cell_id: str) -> Document:
+    """The document with the section the cell opens moved down past the section
+    after it; the same document when there is none to move past."""
     sections = cells_by_section(document.cells)
     standing = where_a_cell_stands(sections, cell_id)
     if standing is None:
-        return
+        return document
     stands_among_at = standing.among.index(standing.section)
     if stands_among_at + 1 < len(standing.among):
         next_in_the_scope = standing.among[stands_among_at + 1]
         lands = _end_of_section(document, next_in_the_scope)
-        _move_section(document, standing.section, lands)
-        return
+        moved = _move_section(document, standing.section, lands)
+        return moved
     if not standing.under:
-        return
+        return document
     scope_it_leaves = standing.under[-1]
     end_of_the_scope = _end_of_section(document, scope_it_leaves)
     past_the_cell_that_ends_the_scope = end_of_the_scope + 1
-    if past_the_cell_that_ends_the_scope <= len(document.cells):
-        _move_section(document, standing.section, past_the_cell_that_ends_the_scope)
+    if past_the_cell_that_ends_the_scope > len(document.cells):
+        return document
+    moved = _move_section(document, standing.section, past_the_cell_that_ends_the_scope)
+    return moved
 
 
-def remove_the_section(document: Document, cell_id: str) -> None:
+def remove_the_section(document: Document, cell_id: str) -> Document:
+    """The document without the section the cell opens; the same document when
+    no section opens with it."""
     sections = cells_by_section(document.cells)
     standing = where_a_cell_stands(sections, cell_id)
     if standing is None:
-        return
+        return document
     stands_at = _where_the_cell_stands(document, standing.section.cell)
     cells_held = cells_within_a_section(standing.section)
-    del document.cells[stands_at : stands_at + len(cells_held)]
+    cells = document.cells
+    del cells[stands_at : stands_at + len(cells_held)]
+    removed = document._with_cells_in_order(cells)
+    return removed

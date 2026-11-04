@@ -134,62 +134,84 @@ function moveSection(
     document: Document,
     section: CellsInASection<Cell>,
     lands: number,
-): void {
+): Document {
     const standsAt = whereTheCellStands(document, section.cell);
     const cellsHeld = cellsWithinASection(section);
-    const moved = document.cells.splice(standsAt, cellsHeld.length);
+    const cells = [...document.cells];
+    const moved = cells.splice(standsAt, cellsHeld.length);
     const landsAfterTheMove =
         lands > standsAt ? lands - cellsHeld.length : lands;
-    document.cells.splice(landsAfterTheMove, 0, ...moved);
+    cells.splice(landsAfterTheMove, 0, ...moved);
+    const movedDocument = document.withCellsInOrder(cells);
+    return movedDocument;
 }
 
-export function moveTheSectionUp(document: Document, cellId: string): void {
+/**
+ * The document with the section the cell opens moved up past the section
+ * before it; the same document when there is none to move past.
+ */
+export function moveTheSectionUp(document: Document, cellId: string): Document {
     const sections = cellsBySection(document.cells);
     const standing = whereACellStands(sections, cellId);
     if (!standing) {
-        return;
+        return document;
     }
     const { section, among, under } = standing;
     const standsAmongAt = among.indexOf(section);
     const goesBefore = among[standsAmongAt - 1] ?? under[under.length - 1];
-    if (goesBefore) {
-        const lands = whereTheCellStands(document, goesBefore.cell);
-        moveSection(document, section, lands);
+    if (!goesBefore) {
+        return document;
     }
+    const lands = whereTheCellStands(document, goesBefore.cell);
+    const moved = moveSection(document, section, lands);
+    return moved;
 }
 
-export function moveTheSectionDown(document: Document, cellId: string): void {
+/**
+ * The document with the section the cell opens moved down past the section
+ * after it; the same document when there is none to move past.
+ */
+export function moveTheSectionDown(document: Document, cellId: string): Document {
     const sections = cellsBySection(document.cells);
     const standing = whereACellStands(sections, cellId);
     if (!standing) {
-        return;
+        return document;
     }
     const { section, among, under } = standing;
     const standsAmongAt = among.indexOf(section);
     const nextInTheScope = among[standsAmongAt + 1];
     if (nextInTheScope) {
         const lands = endOfSection(document, nextInTheScope);
-        moveSection(document, section, lands);
-        return;
+        const moved = moveSection(document, section, lands);
+        return moved;
     }
     const scopeItLeaves = under[under.length - 1];
     if (!scopeItLeaves) {
-        return;
+        return document;
     }
     const endOfTheScope = endOfSection(document, scopeItLeaves);
     const pastTheCellThatEndsTheScope = endOfTheScope + 1;
-    if (pastTheCellThatEndsTheScope <= document.cells.length) {
-        moveSection(document, section, pastTheCellThatEndsTheScope);
+    if (pastTheCellThatEndsTheScope > document.cells.length) {
+        return document;
     }
+    const moved = moveSection(document, section, pastTheCellThatEndsTheScope);
+    return moved;
 }
 
-export function removeTheSection(document: Document, cellId: string): void {
+/**
+ * The document without the section the cell opens; the same document when no
+ * section opens with it.
+ */
+export function removeTheSection(document: Document, cellId: string): Document {
     const sections = cellsBySection(document.cells);
     const standing = whereACellStands(sections, cellId);
     if (!standing) {
-        return;
+        return document;
     }
     const standsAt = whereTheCellStands(document, standing.section.cell);
     const cellsHeld = cellsWithinASection(standing.section);
-    document.cells.splice(standsAt, cellsHeld.length);
+    const cells = [...document.cells];
+    cells.splice(standsAt, cellsHeld.length);
+    const removed = document.withCellsInOrder(cells);
+    return removed;
 }

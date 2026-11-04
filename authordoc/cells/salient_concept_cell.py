@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, TypeVar
 from uuid import uuid4
@@ -25,11 +26,16 @@ _Result = TypeVar("_Result")
 class SalientConceptCell(Cell):
     kind: str = field(default=SALIENT_CONCEPT, init=False)
     title: str = ""
-    references: list[SalientConceptReference] = field(default_factory=list)
+    references: Sequence[SalientConceptReference] = ()
     source: str = ""
     folded: bool = False
     at: tuple[int, int] | None = field(default=None, compare=False)
     _unique_id: str = field(default_factory=lambda: str(uuid4()))
+
+    def __post_init__(self) -> None:
+        # Kept as a tuple, whatever sequence they come as, so that no one changes
+        # them in place.
+        object.__setattr__(self, "references", tuple(self.references))
 
     def with_source(self, source: str) -> SalientConceptCell:
         return replace(self, source=source)

@@ -32,6 +32,7 @@ marker opens a new cell. Markdown has the same bargain with fences.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
 
@@ -51,28 +52,39 @@ class Document:
     """An .author document"""
 
     def __init__(self, text: str, path: Path | None = None) -> None:
-        self.path = path
-        self.cells = parse(text)
+        self._path = path
+        self._cells = parse(text)
 
     @classmethod
-    def from_cells(cls, cells: list[Cell], path: Path | None = None) -> Document:
+    def from_cells(cls, cells: Sequence[Cell], path: Path | None = None) -> Document:
         """A new document made of `cells`, in their order. The cells are written
         out and read back, so every cell is as a fresh read of the file gives it,
         with the lines it is written on.
 
-        Use it to build a document, or to add, remove or reorder cells. To replace
-        one cell, every other cell staying where it is, use `with_cell`. No
-        document is changed: the one you hold stays as it is."""
+        Use it to build a document. To change one, use `with_cells` or
+        `with_cell`, which keep what points at the story's words in step."""
         written = cls("", path)
-        written.cells = list(cells)
-        return cls(written.text, path)
+        written._cells = list(cells)
+        text = written.text
+        built = cls(text, path)
+        return built
+
+    @property
+    def path(self) -> Path | None:
+        return self._path
+
+    @property
+    def cells(self) -> list[Cell]:
+        """The cells, in their order: a copy, so changing it changes no document."""
+        cells = list(self._cells)
+        return cells
 
     @property
     def text(self) -> str:
         """The document as text, such that `parse(text) == cells`."""
         marker_attributes = MarkerAttributes()
         out: list[str] = []
-        for cell in self.cells:
+        for cell in self._cells:
             marker = marker_for(cell, marker_attributes)
             out.append(marker)
             out.append("")
@@ -90,14 +102,14 @@ class Document:
         return cls(path.read_text(encoding="utf-8"), path)
 
     def save(self) -> None:
-        assert self.path is not None
-        self.path.write_text(self.text, encoding="utf-8")
+        assert self._path is not None
+        self._path.write_text(self.text, encoding="utf-8")
 
     @property
     def title_page(self) -> TitlePageCell:
         """What the book says of itself, blank in a document that says nothing."""
         return next(
-            (cell for cell in self.cells if isinstance(cell, TitlePageCell)),
+            (cell for cell in self._cells if isinstance(cell, TitlePageCell)),
             TitlePageCell(),
         )
 
@@ -106,35 +118,55 @@ class Document:
         return self.title_page.title or "Anonymous"
 
     def cell_with_id(self, cell_id: str) -> Cell | None:
-        return next((cell for cell in self.cells if cell.unique_id == cell_id), None)
+        return next((cell for cell in self._cells if cell.unique_id == cell_id), None)
 
     def get_cell(self, cell_type: type[_Cell], kind: str) -> _Cell | None:
         """The first cell of `cell_type` whose kind is `kind`; None when the
         document has no such cell."""
         found = next(
-            (cell for cell in self.cells if isinstance(cell, cell_type) and cell.kind == kind),
+            (cell for cell in self._cells if isinstance(cell, cell_type) and cell.kind == kind),
             None,
         )
         return found
 
-    def with_cell(self, cell: Cell) -> Document:
-        """A new document with `cell` in the place of the cell with its id; one with
-        the same cells when this document has no cell with that id. Like every
-        document `from_cells` makes, every cell is as a fresh read of the file
-        gives it, with the lines it is written on.
+    def with_cells(self, cells: Sequence[Cell]) -> Document:
+        """A new document with each of `cells` in place of the cell with its id,
+        every other cell staying where it is, kept in step: a range of the story's
+        words a cell sets is kept as it sets it, and every other range moves with
+        the words it points at. The cells are found by their ids, so the order they
+        come in makes no difference; one whose id the document lacks is left out.
+        No document is changed: the one you hold stays as it is."""
+        cell_of_id = {cell.unique_id: cell for cell in cells}
+        replaced = [cell_of_id.get(held.unique_id, held) for held in self._cells]
+        with_the_cells = self._with_cells_in_order(replaced)
+        return with_the_cells
 
-        Use it to replace one cell, every other cell staying where it is. To add,
-        remove or reorder cells, use `from_cells`. No document is changed: the one
-        you hold stays as it is."""
-        cells = [cell if held.unique_id == cell.unique_id else held for held in self.cells]
-        with_the_cell = Document.from_cells(cells, self.path)
+    def with_cell(self, cell: Cell) -> Document:
+        """A new document with `cell` in the place of the cell with its id, kept in
+        step as `with_cells` keeps it."""
+        with_the_cell = self.with_cells([cell])
         return with_the_cell
 
+    def _with_cells_in_order(self, cells: Sequence[Cell]) -> Document:
+        """A new document made of `cells`, in their order, kept in step: private to
+        authordoc, whose changes that add, remove or reorder cells go through it."""
+        # The diff and the synchronizer read documents, so they are imported where
+        # they are used.
+        from authordoc.diff import AuthorDocDiff
+        from authordoc.synchronizers.passages_synchronizer import PassagesSynchronizer
+
+        written = Document.from_cells(cells, self._path)
+        change = AuthorDocDiff.diff(self, written)
+        synchronizer = PassagesSynchronizer()
+        passages_moved = synchronizer.synchronize(self, change)
+        synchronized = passages_moved._apply_the_diff(written)
+        return synchronized
+
     def salient_concepts(self) -> list[SalientConceptCell]:
-        return [cell for cell in self.cells if isinstance(cell, SalientConceptCell)]
+        return [cell for cell in self._cells if isinstance(cell, SalientConceptCell)]
 
     def plots(self) -> list[PlotCell]:
-        return [cell for cell in self.cells if isinstance(cell, PlotCell)]
+        return [cell for cell in self._cells if isinstance(cell, PlotCell)]
 
     def get_plot_of_edge(self, edge: PlotEdge) -> PlotCell:
         plot = next(plot for plot in self.plots() if edge in plot.edges)
@@ -149,7 +181,7 @@ class Document:
 
     def cell_at(self, line: int) -> Cell | None:
         """The cell `line` falls in."""
-        for cell in self.cells:
+        for cell in self._cells:
             if cell.at and cell.at[0] <= line <= cell.at[1]:
                 return cell
         return None
