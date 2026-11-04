@@ -147,7 +147,7 @@ class Document:
         change = AuthorDocDiff.diff(self, written)
         synchronizer = PassagesSynchronizer()
         passages_moved = synchronizer.synchronize(self, change)
-        synchronized = passages_moved.apply_the_diff(written)
+        synchronized = passages_moved._apply_the_diff(written)
         return synchronized
 
     def with_cell(self, cell: Cell) -> Document:

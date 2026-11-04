@@ -2,15 +2,20 @@ import { Cell } from "./cell";
 import type { CellVisitor } from "./cell_visitor";
 
 export class UnknownCell extends Cell {
+    readonly attrs: Readonly<Record<string, string>>;
+
     constructor(
         readonly kind: string,
-        readonly attrs: Readonly<Record<string, string>> = {},
+        attrs: Readonly<Record<string, string>> = {},
         source: string = "",
         folded: boolean = false,
         at: readonly [number, number] | null = null,
         uniqueId: string = crypto.randomUUID(),
     ) {
         super(source, folded, at, uniqueId);
+        // Kept as a frozen copy, whatever record they come as, so that no one
+        // changes them in place.
+        this.attrs = Object.freeze({ ...attrs });
     }
 
     withSource(source: string): UnknownCell {

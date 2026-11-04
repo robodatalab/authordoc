@@ -81,14 +81,21 @@ _Result = TypeVar("_Result")
 class PlotCell(Cell):
     kind: str = field(default=PLOT, init=False)
     title: str = ""
-    nodes: list[PlotNode] = field(default_factory=list)
-    edges: list[PlotEdge] = field(default_factory=list)
+    nodes: Sequence[PlotNode] = ()
+    edges: Sequence[PlotEdge] = ()
     overview: str = ""
     folded: bool = False
     at: tuple[int, int] | None = field(default=None, compare=False)
     _unique_id: str = field(default_factory=lambda: str(uuid4()))
     # The ids of the salient concepts the plot references.
-    _concepts: list[str] = field(default_factory=list)
+    _concepts: Sequence[str] = ()
+
+    def __post_init__(self) -> None:
+        # Kept as tuples, whatever sequences they come as, so that no one changes
+        # them in place.
+        object.__setattr__(self, "nodes", tuple(self.nodes))
+        object.__setattr__(self, "edges", tuple(self.edges))
+        object.__setattr__(self, "_concepts", tuple(self._concepts))
 
     @property
     def source(self) -> str:  # type: ignore[override]
@@ -146,7 +153,7 @@ class PlotCell(Cell):
         retitled = replace(self, title=title)
         return retitled
 
-    def with_nodes(self, nodes: list[PlotNode]) -> PlotCell:
+    def with_nodes(self, nodes: Sequence[PlotNode]) -> PlotCell:
         with_the_nodes = replace(self, nodes=nodes)
         return with_the_nodes
 
@@ -156,7 +163,7 @@ class PlotCell(Cell):
         with_the_node = replace(self, nodes=nodes)
         return with_the_node
 
-    def with_edges(self, edges: list[PlotEdge]) -> PlotCell:
+    def with_edges(self, edges: Sequence[PlotEdge]) -> PlotCell:
         with_the_edges = replace(self, edges=edges)
         return with_the_edges
 

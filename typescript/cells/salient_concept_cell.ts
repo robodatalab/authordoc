@@ -13,16 +13,20 @@ export class SalientConceptReference {
 
 export class SalientConceptCell extends Cell {
     readonly kind = SALIENT_CONCEPT;
+    readonly references: readonly SalientConceptReference[];
 
     constructor(
         readonly title: string = "",
-        readonly references: readonly SalientConceptReference[] = [],
+        references: readonly SalientConceptReference[] = [],
         source: string = "",
         folded: boolean = false,
         at: readonly [number, number] | null = null,
         uniqueId: string = crypto.randomUUID(),
     ) {
         super(source, folded, at, uniqueId);
+        // Kept as a frozen copy, whatever array they come as, so that no one
+        // changes them in place.
+        this.references = Object.freeze([...references]);
     }
 
     withSource(source: string): SalientConceptCell {

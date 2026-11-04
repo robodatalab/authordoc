@@ -544,6 +544,76 @@ describe("changing a document", () => {
     });
 });
 
+describe("a cell's collections", () => {
+    it("of a plot, its events and edges, are its own", () => {
+        const nodes = [new PlotNode("e1", null)];
+        const edges = [new PlotEdge("x1", "e1", "e1")];
+        const plot = new PlotCell("The door", nodes, edges);
+
+        nodes.splice(0);
+        edges.splice(0);
+
+        expect(plot.nodes).toEqual([new PlotNode("e1", null)]);
+        expect(plot.edges).toEqual([new PlotEdge("x1", "e1", "e1")]);
+    });
+
+    it("of a concept, its references, are its own", () => {
+        const references = [new SalientConceptReference("r1", new StoryWordRange(0, 1))];
+        const concept = new SalientConceptCell("Door", references);
+
+        references.splice(0);
+
+        expect(concept.references).toEqual([new SalientConceptReference("r1", new StoryWordRange(0, 1))]);
+    });
+
+    it("of an unknown cell, its attributes, are its own", () => {
+        const attrs: Record<string, string> = { attribution: "Anon" };
+        const cell = new UnknownCell("epigraph", attrs);
+
+        attrs.attribution = "Someone";
+
+        expect(cell.attrs).toEqual({ attribution: "Anon" });
+    });
+
+    it("of a plot, its events, cannot be changed in place", () => {
+        const plot = new PlotCell("The door", [new PlotNode("e1", null)]);
+
+        expect(() => {
+            // @ts-expect-error: a plot's events are read-only.
+            plot.nodes.push(new PlotNode("e2", null));
+        }).toThrow(TypeError);
+    });
+
+    it("of a plot, its edges, cannot be changed in place", () => {
+        const plot = new PlotCell("The door", [new PlotNode("e1", null)], [new PlotEdge("x1", "e1", "e1")]);
+
+        expect(() => {
+            // @ts-expect-error: a plot's edges are read-only.
+            plot.edges.splice(0);
+        }).toThrow(TypeError);
+    });
+
+    it("of a concept, its references, cannot be changed in place", () => {
+        const concept = new SalientConceptCell("Door", [
+            new SalientConceptReference("r1", new StoryWordRange(0, 1)),
+        ]);
+
+        expect(() => {
+            // @ts-expect-error: a concept's references are read-only.
+            concept.references.splice(0);
+        }).toThrow(TypeError);
+    });
+
+    it("of an unknown cell, its attributes, cannot be changed in place", () => {
+        const cell = new UnknownCell("epigraph", { attribution: "Anon" });
+
+        expect(() => {
+            // @ts-expect-error: an unknown cell's attributes are read-only.
+            cell.attrs.attribution = "Someone";
+        }).toThrow(TypeError);
+    });
+});
+
 describe("changing a section", () => {
     const writtenDocument = () =>
         Document.fromCells([

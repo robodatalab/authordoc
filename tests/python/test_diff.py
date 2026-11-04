@@ -88,9 +88,9 @@ class ApplyingADifference(unittest.TestCase):
         rhs = Document(rhs_text)
         change = AuthorDocDiff.diff(lhs, rhs)
 
-        turned = change.apply_the_diff(lhs)
+        turned = change._apply_the_diff(lhs)
         inverted = change.invert()
-        turned_back = inverted.apply_the_diff(rhs)
+        turned_back = inverted._apply_the_diff(rhs)
 
         self.assertEqual(turned.text, rhs.text)
         self.assertEqual(turned_back.text, lhs.text)

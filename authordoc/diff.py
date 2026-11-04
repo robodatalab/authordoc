@@ -72,7 +72,10 @@ class AuthorDocDiff:
         inverted = AuthorDocDiff(inverted_changes)
         return inverted
 
-    def apply_the_diff(self, document: Document) -> Document:
+    def _apply_the_diff(self, document: Document) -> Document:
+        """The document with the changes made, and nothing kept in step: private to
+        authordoc, whose own changes come kept in step. Change a document with
+        `Document.with_cells`."""
         cells: list[Cell] = document.cells
         for change in self.changes:
             cells = change.apply_to(cells)

@@ -79,6 +79,13 @@ export class AuthorDocDiff {
         return new AuthorDocDiff(inverted);
     }
 
+    /**
+     * The document with the changes made, and nothing kept in step: internal to
+     * authordoc, whose own changes come kept in step, and left out of the types
+     * it publishes. Change a document with `Document.withCells`.
+     *
+     * @internal
+     */
     applyTheDiff(document: Document): Document {
         let cells: readonly Cell[] = document.cells;
         for (const change of this.changes) {

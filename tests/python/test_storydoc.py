@@ -226,7 +226,7 @@ SHE_SAW = MarkdownCell("She saw the door.", False, None, "c2")
 HE_HEARD = MarkdownCell("He heard the bell.", False, None, "c3")
 IT_RANG = MarkdownCell("It rang.", False, None, "c4")
 THE_BELL = SalientConceptCell(
-    "Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"
+    "Bell", (SalientConceptReference("r1", StoryWordRange(6, 7)),), "What he heard.", False, None, "k1"
 )
 THE_PLOT = PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1")
 
@@ -240,25 +240,25 @@ class ChangingADocument(unittest.TestCase):
             (
                 "a_word_written_before_them_moves_them_on",
                 MarkdownCell("She saw the old door.", False, None, "c2"),
-                [SalientConceptReference("r1", StoryWordRange(7, 8))],
+                (SalientConceptReference("r1", StoryWordRange(7, 8)),),
                 StoryWordRange(5, 8),
             ),
             (
                 "a_word_of_theirs_written_over_keeps_them",
                 MarkdownCell("He heard the bells.", False, None, "c3"),
-                [SalientConceptReference("r1", StoryWordRange(6, 7))],
+                (SalientConceptReference("r1", StoryWordRange(6, 7)),),
                 StoryWordRange(4, 7),
             ),
             (
                 "the_words_they_point_at_deleted_lose_them",
                 MarkdownCell("He heard", False, None, "c3"),
-                [],
+                (),
                 StoryWordRange(4, 5),
             ),
         ]
     )
     def test_with_a_cell_keeps_passages_and_events_on_their_words(
-        self, _, cell: MarkdownCell, expected_references: list[SalientConceptReference], expected_words: StoryWordRange
+        self, _, cell: MarkdownCell, expected_references: tuple[SalientConceptReference, ...], expected_words: StoryWordRange
     ) -> None:
         changed = self.document.with_cell(cell)
 
@@ -273,25 +273,25 @@ class ChangingADocument(unittest.TestCase):
             (
                 "a_cell_added_before_them_moves_them_on",
                 [SHE_SAW, IT_RANG, HE_HEARD, THE_BELL, THE_PLOT],
-                [SalientConceptReference("r1", StoryWordRange(8, 9))],
+                (SalientConceptReference("r1", StoryWordRange(8, 9)),),
                 StoryWordRange(6, 9),
             ),
             (
                 "a_cell_before_them_taken_out_moves_them_back",
                 [HE_HEARD, THE_BELL, THE_PLOT],
-                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
                 StoryWordRange(0, 3),
             ),
             (
                 "the_cell_they_stand_in_moved_takes_them_with_it",
                 [HE_HEARD, SHE_SAW, THE_BELL, THE_PLOT],
-                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
                 StoryWordRange(0, 3),
             ),
             (
                 "the_cell_they_stand_in_taken_out_loses_them",
                 [SHE_SAW, THE_BELL, THE_PLOT],
-                [],
+                (),
                 None,
             ),
         ]
@@ -300,7 +300,7 @@ class ChangingADocument(unittest.TestCase):
         self,
         _,
         cells: list[Cell],
-        expected_references: list[SalientConceptReference],
+        expected_references: tuple[SalientConceptReference, ...],
         expected_words: StoryWordRange | None,
     ) -> None:
         changed = self.document.with_cells(cells)
@@ -327,6 +327,59 @@ class ChangingADocument(unittest.TestCase):
             self.document.path = Path("elsewhere.author")  # type: ignore[misc]
 
 
+class ACellsCollections(unittest.TestCase):
+    def test_a_plot_keeps_its_own_events_and_edges(self) -> None:
+        nodes = [PlotNode("e1", None)]
+        edges = [PlotEdge("x1", "e1", "e1")]
+        plot = PlotCell("The door", nodes, edges)
+
+        nodes.clear()
+        edges.clear()
+
+        self.assertEqual(plot.nodes, (PlotNode("e1", None),))
+        self.assertEqual(plot.edges, (PlotEdge("x1", "e1", "e1"),))
+
+    def test_a_concept_keeps_its_own_references(self) -> None:
+        references = [SalientConceptReference("r1", StoryWordRange(0, 1))]
+        concept = SalientConceptCell("Door", references)
+
+        references.clear()
+
+        self.assertEqual(concept.references, (SalientConceptReference("r1", StoryWordRange(0, 1)),))
+
+    def test_an_unknown_cell_keeps_its_own_attributes(self) -> None:
+        attrs = {"attribution": "Anon"}
+        cell = UnknownCell("epigraph", attrs)
+
+        attrs.clear()
+
+        self.assertEqual(cell.attrs, {"attribution": "Anon"})
+
+    def test_a_plots_events_cannot_be_changed_in_place(self) -> None:
+        plot = PlotCell("The door", [PlotNode("e1", None)])
+
+        with self.assertRaises(AttributeError):
+            plot.nodes.append(PlotNode("e2", None))  # type: ignore[attr-defined]
+
+    def test_a_plots_edges_cannot_be_changed_in_place(self) -> None:
+        plot = PlotCell("The door", [PlotNode("e1", None)], [PlotEdge("x1", "e1", "e1")])
+
+        with self.assertRaises(AttributeError):
+            plot.edges.clear()  # type: ignore[attr-defined]
+
+    def test_a_concepts_references_cannot_be_changed_in_place(self) -> None:
+        concept = SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(0, 1))])
+
+        with self.assertRaises(AttributeError):
+            concept.references.clear()  # type: ignore[attr-defined]
+
+    def test_an_unknown_cells_attributes_cannot_be_changed_in_place(self) -> None:
+        cell = UnknownCell("epigraph", {"attribution": "Anon"})
+
+        with self.assertRaises(TypeError):
+            cell.attrs["attribution"] = "Someone"  # type: ignore[index]
+
+
 class ChangingASection(unittest.TestCase):
     def setUp(self) -> None:
         self.document = Document.from_cells(
@@ -346,28 +399,28 @@ class ChangingASection(unittest.TestCase):
                 "moved_up_takes_its_passages_and_events_with_it",
                 move_the_section_up,
                 "ch2",
-                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
                 StoryWordRange(0, 3),
             ),
             (
                 "moved_down_moves_the_passages_and_events_after_it_back",
                 move_the_section_down,
                 "ch1",
-                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
                 StoryWordRange(0, 3),
             ),
             (
                 "removed_moves_the_passages_and_events_after_it_back",
                 remove_the_section,
                 "ch1",
-                [SalientConceptReference("r1", StoryWordRange(2, 3))],
+                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
                 StoryWordRange(0, 3),
             ),
             (
                 "removed_loses_the_passages_and_events_in_it",
                 remove_the_section,
                 "ch2",
-                [],
+                (),
                 None,
             ),
         ]
@@ -377,7 +430,7 @@ class ChangingASection(unittest.TestCase):
         _,
         change: Callable[[Document, str], Document],
         cell_id: str,
-        expected_references: list[SalientConceptReference],
+        expected_references: tuple[SalientConceptReference, ...],
         expected_words: StoryWordRange | None,
     ) -> None:
         changed = change(self.document, cell_id)
@@ -521,7 +574,7 @@ class SalientConcepts(unittest.TestCase):
             '<!-- cell: salient-concept id="k1" title="Door" words="r1:2-3" -->\n'
             '\n'
             'What she saw.\n',
-            [SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(2, 3))], "What she saw.", False, None, "k1")],
+            [SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(2, 3)),), "What she saw.", False, None, "k1")],
         ),
         (
             "a_range_of_one_word",
@@ -530,7 +583,7 @@ class SalientConcepts(unittest.TestCase):
             'She saw the door.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Her" words="r1:0-0" -->\n',
-            [SalientConceptCell("Her", [SalientConceptReference("r1", StoryWordRange(0, 0))], "", False, None, "k1")],
+            [SalientConceptCell("Her", (SalientConceptReference("r1", StoryWordRange(0, 0)),), "", False, None, "k1")],
         ),
         (
             "a_range_across_paragraphs_of_a_cell",
@@ -541,7 +594,7 @@ class SalientConcepts(unittest.TestCase):
             'He heard the bell.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Arrival" words="r1:2-5" -->\n',
-            [SalientConceptCell("Arrival", [SalientConceptReference("r1", StoryWordRange(2, 5))], "", False, None, "k1")],
+            [SalientConceptCell("Arrival", (SalientConceptReference("r1", StoryWordRange(2, 5)),), "", False, None, "k1")],
         ),
         (
             "a_range_across_markdown_cells",
@@ -554,7 +607,7 @@ class SalientConcepts(unittest.TestCase):
             'He heard the bell.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Arrival" words="r1:3-5" -->\n',
-            [SalientConceptCell("Arrival", [SalientConceptReference("r1", StoryWordRange(3, 5))], "", False, None, "k1")],
+            [SalientConceptCell("Arrival", (SalientConceptReference("r1", StoryWordRange(3, 5)),), "", False, None, "k1")],
         ),
         (
             "cells_other_than_markdown_hold_no_story_words",
@@ -575,7 +628,7 @@ class SalientConcepts(unittest.TestCase):
             '<!-- cell: salient-concept id="k1" title="Him" words="r1:4-4" -->\n'
             '\n'
             'The one who heard.\n',
-            [SalientConceptCell("Him", [SalientConceptReference("r1", StoryWordRange(4, 4))], "The one who heard.", False, None, "k1")],
+            [SalientConceptCell("Him", (SalientConceptReference("r1", StoryWordRange(4, 4)),), "The one who heard.", False, None, "k1")],
         ),
         (
             "a_run_without_a_letter_or_a_digit_is_not_a_word",
@@ -584,7 +637,7 @@ class SalientConcepts(unittest.TestCase):
             'She — saw 2 doors.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Seeing" words="r1:0-2" -->\n',
-            [SalientConceptCell("Seeing", [SalientConceptReference("r1", StoryWordRange(0, 2))], "", False, None, "k1")],
+            [SalientConceptCell("Seeing", (SalientConceptReference("r1", StoryWordRange(0, 2)),), "", False, None, "k1")],
         ),
         (
             "a_run_of_letters_outside_ascii_alone_is_not_a_word",
@@ -593,7 +646,7 @@ class SalientConcepts(unittest.TestCase):
             'She saw é café.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Café" words="r1:2-2" -->\n',
-            [SalientConceptCell("Café", [SalientConceptReference("r1", StoryWordRange(2, 2))], "", False, None, "k1")],
+            [SalientConceptCell("Café", (SalientConceptReference("r1", StoryWordRange(2, 2)),), "", False, None, "k1")],
         ),
         (
             "the_words_of_a_comment_in_a_markdown_cell_are_story_words",
@@ -602,7 +655,7 @@ class SalientConcepts(unittest.TestCase):
             'She saw <!-- a note --> the door.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Door" words="r1:4-5" -->\n',
-            [SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(4, 5))], "", False, None, "k1")],
+            [SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(4, 5)),), "", False, None, "k1")],
         ),
         (
             "ranges_keep_the_order_they_are_written_in",
@@ -633,7 +686,7 @@ class SalientConcepts(unittest.TestCase):
             'She saw the door.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Door" words="r1:10-12" -->\n',
-            [SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(10, 12))], "", False, None, "k1")],
+            [SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(10, 12)),), "", False, None, "k1")],
         ),
         (
             "a_range_running_past_the_end_covers_the_words_up_to_the_end",
@@ -642,7 +695,7 @@ class SalientConcepts(unittest.TestCase):
             'She saw the door.\n'
             '\n'
             '<!-- cell: salient-concept id="k1" title="Door" words="r1:2-12" -->\n',
-            [SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(2, 12))], "", False, None, "k1")],
+            [SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(2, 12)),), "", False, None, "k1")],
         ),
         (
             "several_concepts_in_the_order_of_the_document",
@@ -658,8 +711,8 @@ class SalientConcepts(unittest.TestCase):
             '\n'
             '<!-- cell: salient-concept id="k2" title="Door" words="r1:2-3" -->\n',
             [
-                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "", False, None, "k1"),
-                SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(2, 3))], "", False, None, "k2"),
+                SalientConceptCell("Bell", (SalientConceptReference("r1", StoryWordRange(6, 7)),), "", False, None, "k1"),
+                SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(2, 3)),), "", False, None, "k2"),
             ],
         ),
         (
@@ -672,8 +725,8 @@ class SalientConcepts(unittest.TestCase):
             '\n'
             '<!-- cell: salient-concept id="k2" title="Seeing" words="r1:0-3" -->\n',
             [
-                SalientConceptCell("Door", [SalientConceptReference("r1", StoryWordRange(2, 3))], "", False, None, "k1"),
-                SalientConceptCell("Seeing", [SalientConceptReference("r1", StoryWordRange(0, 3))], "", False, None, "k2"),
+                SalientConceptCell("Door", (SalientConceptReference("r1", StoryWordRange(2, 3)),), "", False, None, "k1"),
+                SalientConceptCell("Seeing", (SalientConceptReference("r1", StoryWordRange(0, 3)),), "", False, None, "k2"),
             ],
         ),
     ])
@@ -888,7 +941,7 @@ class PlotEvents(unittest.TestCase):
 
         self.assertEqual(rewritten.overview, "A mother.")
         self.assertEqual(
-            rewritten.nodes, [PlotNode("e1", None, "2.1", "orbit", "Varn calls her daughter.")]
+            rewritten.nodes, (PlotNode("e1", None, "2.1", "orbit", "Varn calls her daughter."),)
         )
         self.assertEqual(rewritten.edges, plot.edges)
 
@@ -922,9 +975,9 @@ class PlotEvents(unittest.TestCase):
 
         replotted = plot.with_node(retold)
 
-        self.assertEqual(replotted.nodes, [first, retold])
+        self.assertEqual(replotted.nodes, (first, retold))
         self.assertEqual(replotted.edges, plot.edges)
-        self.assertEqual(plot.nodes, [first, second])
+        self.assertEqual(plot.nodes, (first, second))
 
 
 class PlotEdges(unittest.TestCase):
@@ -1121,7 +1174,7 @@ class PlotConcepts(unittest.TestCase):
     def test_are_kept_when_the_events_change(self) -> None:
         document = Document(self.THE_STORY)
         (plot,) = document.plots()
-        nodes = [PlotNode("e1", None, "1", "earth", "Varn calls her daughter.")]
+        nodes = (PlotNode("e1", None, "1", "earth", "Varn calls her daughter."),)
 
         with_the_nodes = plot.with_nodes(nodes)
 
@@ -1132,7 +1185,7 @@ class PlotConcepts(unittest.TestCase):
     def test_are_kept_when_the_edges_change(self) -> None:
         document = Document(self.THE_STORY)
         (plot,) = document.plots()
-        edges = [PlotEdge("x1", "e1", "e2")]
+        edges = (PlotEdge("x1", "e1", "e2"),)
 
         with_the_edges = plot.with_edges(edges)
 
