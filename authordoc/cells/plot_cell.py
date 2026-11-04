@@ -115,6 +115,16 @@ class PlotCell(Cell):
                 return node
         raise KeyError(node_id)
 
+    def inbound_edges(self, node: PlotNode) -> list[PlotEdge]:
+        """The plot's edges that lead to `node`, in the plot's order."""
+        inbound = [edge for edge in self.edges if edge.to_node_id == node.node_id]
+        return inbound
+
+    def outbound_edges(self, node: PlotNode) -> list[PlotEdge]:
+        """The plot's edges that leave `node`, in the plot's order."""
+        outbound = [edge for edge in self.edges if edge.from_node_id == node.node_id]
+        return outbound
+
     def concepts(self, document: Document) -> list[SalientConceptCell]:
         """The salient concepts of `document` the plot references, in the order it
         references them; a concept the document no longer has is left out."""
