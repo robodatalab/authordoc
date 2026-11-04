@@ -141,6 +141,18 @@ export class PlotCell extends Cell {
         return node;
     }
 
+    /** The plot's edges that lead to `node`, in the plot's order. */
+    inboundEdges(node: PlotNode): PlotEdge[] {
+        const inbound = this.edges.filter((edge) => edge.toNodeId === node.nodeId);
+        return inbound;
+    }
+
+    /** The plot's edges that leave `node`, in the plot's order. */
+    outboundEdges(node: PlotNode): PlotEdge[] {
+        const outbound = this.edges.filter((edge) => edge.fromNodeId === node.nodeId);
+        return outbound;
+    }
+
     /**
      * The salient concepts of `document` the plot references, in the order it
      * references them; a concept the document no longer has is left out.

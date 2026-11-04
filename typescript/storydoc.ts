@@ -32,7 +32,7 @@
  */
 
 import { Cell, splitlines } from "./cells/cell";
-import { PlotCell, PlotEdge } from "./cells/plot_cell";
+import { PlotCell, PlotEdge, PlotNode } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
 import { markerFor, parse } from "./parser";
@@ -109,6 +109,20 @@ export class Document {
     }
 
     /**
+     * The first cell of `cellType` whose kind is `kind`; undefined when the
+     * document has no such cell.
+     */
+    getCell<C extends Cell>(
+        cellType: abstract new (...args: never[]) => C,
+        kind: string,
+    ): C | undefined {
+        const found = this.cells.find(
+            (cell): cell is C => cell instanceof cellType && cell.kind === kind,
+        );
+        return found;
+    }
+
+    /**
      * A new document with `cell` in the place of the cell with its id; one with
      * the same cells when this document has no cell with that id. Like every
      * document `fromCells` makes, every cell is as a fresh read of the file
@@ -143,6 +157,24 @@ export class Document {
         );
         if (plot === undefined) {
             throw new Error(edge.edgeId);
+        }
+        return plot;
+    }
+
+    getPlotOfNode(node: PlotNode): PlotCell {
+        const plot = this.plots().find((plot) =>
+            plot.nodes.some(
+                (nodeOfThePlot) =>
+                    nodeOfThePlot.nodeId === node.nodeId &&
+                    nodeOfThePlot.storyWordRange?.firstWord === node.storyWordRange?.firstWord &&
+                    nodeOfThePlot.storyWordRange?.lastWord === node.storyWordRange?.lastWord &&
+                    nodeOfThePlot.timestamp === node.timestamp &&
+                    nodeOfThePlot.location === node.location &&
+                    nodeOfThePlot.summary === node.summary,
+            ),
+        );
+        if (plot === undefined) {
+            throw new Error(node.nodeId);
         }
         return plot;
     }
