@@ -135,33 +135,43 @@ export class Document {
     }
 
     /**
-     * A new document made of `cells`, in their order, in which everything that
-     * points at the story's words, a concept's passages and an event's words,
-     * points at the same words it pointed at in this one; what points at words
-     * that are gone points at none. Like every document `fromCells` makes, every
-     * cell is as a fresh read of the file gives it.
-     *
-     * Use it to add, remove, reorder or rewrite cells. No document is changed:
-     * the one you hold stays as it is.
+     * A new document with each of `cells` in place of the cell with its id,
+     * every other cell staying where it is, kept in step: a range of the story's
+     * words a cell sets is kept as it sets it, and every other range moves with
+     * the words it points at. The cells are found by their ids, so the order they
+     * come in makes no difference; one whose id the document lacks is left out.
+     * No document is changed: the one you hold stays as it is.
      */
     withCells(cells: readonly Cell[]): Document {
+        const cellOfId = new Map(cells.map((cell) => [cell.uniqueId, cell]));
+        const replaced = this._cells.map((held) => cellOfId.get(held.uniqueId) ?? held);
+        const withTheCells = this.withCellsInOrder(replaced);
+        return withTheCells;
+    }
+
+    /**
+     * A new document with `cell` in the place of the cell with its id, kept in
+     * step as `withCells` keeps it.
+     */
+    withCell(cell: Cell): Document {
+        const withTheCell = this.withCells([cell]);
+        return withTheCell;
+    }
+
+    /**
+     * A new document made of `cells`, in their order, kept in step: internal to
+     * authordoc, whose changes that add, remove or reorder cells go through it,
+     * and left out of the types it publishes.
+     *
+     * @internal
+     */
+    withCellsInOrder(cells: readonly Cell[]): Document {
         const written = Document.fromCells(cells, this._path);
         const change = AuthorDocDiff.diff(this, written);
         const synchronizer = new PassagesSynchronizer();
         const passagesMoved = synchronizer.synchronize(this, change);
         const synchronized = passagesMoved.applyTheDiff(written);
         return synchronized;
-    }
-
-    /**
-     * A new document with `cell` in the place of the cell with its id, kept in
-     * step as `withCells` keeps it; one with the same cells when this document
-     * has no cell with that id.
-     */
-    withCell(cell: Cell): Document {
-        const cells = this._cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
-        const withTheCell = this.withCells(cells);
-        return withTheCell;
     }
 
     salientConcepts(): SalientConceptCell[] {

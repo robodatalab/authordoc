@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from collections.abc import Callable
+from itertools import permutations
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -268,49 +269,6 @@ class ChangingADocument(unittest.TestCase):
         self.assertEqual(concept.references, expected_references)
         self.assertEqual(event.story_word_range, expected_words)
 
-    @parameterized.expand(
-        [
-            (
-                "a_cell_added_before_them_moves_them_on",
-                [SHE_SAW, IT_RANG, HE_HEARD, THE_BELL, THE_PLOT],
-                (SalientConceptReference("r1", StoryWordRange(8, 9)),),
-                StoryWordRange(6, 9),
-            ),
-            (
-                "a_cell_before_them_taken_out_moves_them_back",
-                [HE_HEARD, THE_BELL, THE_PLOT],
-                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
-                StoryWordRange(0, 3),
-            ),
-            (
-                "the_cell_they_stand_in_moved_takes_them_with_it",
-                [HE_HEARD, SHE_SAW, THE_BELL, THE_PLOT],
-                (SalientConceptReference("r1", StoryWordRange(2, 3)),),
-                StoryWordRange(0, 3),
-            ),
-            (
-                "the_cell_they_stand_in_taken_out_loses_them",
-                [SHE_SAW, THE_BELL, THE_PLOT],
-                (),
-                None,
-            ),
-        ]
-    )
-    def test_with_cells_keeps_passages_and_events_on_their_words(
-        self,
-        _,
-        cells: list[Cell],
-        expected_references: tuple[SalientConceptReference, ...],
-        expected_words: StoryWordRange | None,
-    ) -> None:
-        changed = self.document.with_cells(cells)
-
-        (concept,) = changed.salient_concepts()
-        (plot,) = changed.plots()
-        (event,) = plot.nodes
-        self.assertEqual(concept.references, expected_references)
-        self.assertEqual(event.story_word_range, expected_words)
-
     def test_its_cells_are_a_copy_that_changes_no_document(self) -> None:
         cells = self.document.cells
 
@@ -325,6 +283,86 @@ class ChangingADocument(unittest.TestCase):
     def test_its_path_cannot_be_set(self) -> None:
         with self.assertRaises(AttributeError):
             self.document.path = Path("elsewhere.author")  # type: ignore[misc]
+
+
+class DocumentWithCells(unittest.TestCase):
+    def setUp(self) -> None:
+        # The story's words: "She(0) saw(1) the(2) door.(3)" in c2, "He(4) heard(5)
+        # the(6) bell.(7)" in c3. The concept points at "the bell.", the event at all of c3.
+        self.document = Document.from_cells(
+            [
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell(
+                    "Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"
+                ),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+            ]
+        )
+
+    @parameterized.expand(
+        permutations(
+            [
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+            ]
+        )
+    )
+    def test_content_is_invariant_under_different_ordering_of_the_cells_when_prose_before_an_event_is_rewritten(self, *cells: Cell) -> None:
+        changed = self.document.with_cells(cells)
+
+        story_words = StoryWordsIterator(changed)
+        (concept,) = changed.salient_concepts()
+        (reference,) = concept.references
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(story_words.text(reference.story_word_range), "the bell.")
+        self.assertEqual(story_words.text(event.story_word_range), "He heard the bell.")
+
+    @parameterized.expand(
+        permutations(
+            [
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+            ]
+        )
+    )
+    def test_content_is_invariant_under_different_ordering_of_the_cells_when_the_events_own_prose_is_rewritten(self, *cells: Cell) -> None:
+        changed = self.document.with_cells(cells)
+
+        story_words = StoryWordsIterator(changed)
+        (concept,) = changed.salient_concepts()
+        (reference,) = concept.references
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(story_words.text(reference.story_word_range), "the old bell.")
+        self.assertEqual(story_words.text(event.story_word_range), "He heard the old bell.")
+
+    @parameterized.expand(
+        permutations(
+            [
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+            ]
+        )
+    )
+    def test_content_is_invariant_under_different_ordering_of_the_cells_when_a_new_event_is_set_against_new_prose(self, *cells: Cell) -> None:
+        changed = self.document.with_cells(cells)
+
+        story_words = StoryWordsIterator(changed)
+        (concept,) = changed.salient_concepts()
+        (reference,) = concept.references
+        (plot,) = changed.plots()
+        (bell, door) = plot.nodes
+        self.assertEqual(story_words.text(reference.story_word_range), "the bell.")
+        self.assertEqual(story_words.text(bell.story_word_range), "He heard the bell.")
+        self.assertEqual(story_words.text(door.story_word_range), "the old door.")
 
 
 class ACellsCollections(unittest.TestCase):

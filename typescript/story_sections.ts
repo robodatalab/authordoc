@@ -142,7 +142,7 @@ function moveSection(
     const landsAfterTheMove =
         lands > standsAt ? lands - cellsHeld.length : lands;
     cells.splice(landsAfterTheMove, 0, ...moved);
-    const movedDocument = document.withCells(cells);
+    const movedDocument = document.withCellsInOrder(cells);
     return movedDocument;
 }
 
@@ -212,6 +212,6 @@ export function removeTheSection(document: Document, cellId: string): Document {
     const cellsHeld = cellsWithinASection(standing.section);
     const cells = [...document.cells];
     cells.splice(standsAt, cellsHeld.length);
-    const removed = document.withCells(cells);
+    const removed = document.withCellsInOrder(cells);
     return removed;
 }

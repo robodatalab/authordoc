@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
-from authordoc.author_doc_change_visitor import AuthorDocChangeVisitor
 from authordoc.author_doc_synchronizer import AuthorDocSynchronizer
 from authordoc.cells.about_cell import AboutCell
 from authordoc.cells.blurb_cell import BlurbCell
@@ -22,11 +21,6 @@ from authordoc.cells.story_word_range import StoryWordRange
 from authordoc.cells.table_of_contents_cell import TableOfContentsCell
 from authordoc.cells.title_page_cell import TitlePageCell
 from authordoc.cells.unknown_cell import UnknownCell
-from authordoc.changes.cell_added import CellAdded
-from authordoc.changes.cell_header_changed import CellHeaderChanged
-from authordoc.changes.cell_removed import CellRemoved
-from authordoc.changes.cell_text_changed import CellTextChanged
-from authordoc.changes.cells_moved import CellsMoved
 from authordoc.diff import AuthorDocDiff
 from authordoc.iterators.story_words_iterator import StoryWord, StoryWordsIterator
 from authordoc.storydoc import Document
@@ -124,30 +118,25 @@ def _where_the_story_words_went(before: Document, after: Document) -> _WhereTheS
     return where_the_words_went
 
 
-class _CellTheChangeRewrites(AuthorDocChangeVisitor[str | None]):
-    def visit_cell_added(self, cell_added: CellAdded) -> str:
-        return cell_added.cell.unique_id
-
-    def visit_cell_header_changed(self, cell_header_changed: CellHeaderChanged) -> str:
-        return cell_header_changed.header_after.unique_id
-
-    def visit_cell_removed(self, cell_removed: CellRemoved) -> None:
-        return None
-
-    def visit_cells_moved(self, cells_moved: CellsMoved) -> None:
-        return None
-
-    def visit_cell_text_changed(self, cell_text_changed: CellTextChanged) -> None:
-        return None
-
-
 class _PassagesKeptInStep(CellVisitor[Cell]):
-    def __init__(self, where_the_words_went: _WhereTheStoryWordsWent) -> None:
+    """A range the change leaves as it was counts the story's words as they stood
+    before it, and moves with them; a range the change sets, new or different,
+    counts them as they stand after it, and is kept as the change writes it. So
+    the order the change writes its cells in makes no difference."""
+
+    def __init__(self, before: Document, where_the_words_went: _WhereTheStoryWordsWent) -> None:
+        self._before = before
         self._where_the_words_went = where_the_words_went
 
     def visit_salient_concept(self, cell: SalientConceptCell) -> SalientConceptCell:
+        held = self._before.cell_with_id(cell.unique_id)
+        references_before = held.references if isinstance(held, SalientConceptCell) else ()
+        ranges_before = {reference.reference_id: reference.story_word_range for reference in references_before}
         references_kept_in_step: list[SalientConceptReference] = []
         for reference in cell.references:
+            if ranges_before.get(reference.reference_id) != reference.story_word_range:
+                references_kept_in_step.append(reference)
+                continue
             range_kept_in_step = self._where_the_words_went.range_kept_in_step(reference.story_word_range)
             if range_kept_in_step is not None:
                 reference_kept_in_step = SalientConceptReference(reference.reference_id, range_kept_in_step)
@@ -158,9 +147,12 @@ class _PassagesKeptInStep(CellVisitor[Cell]):
     # An event outlives the words that told it: when they are gone, it is simply
     # told by none.
     def visit_plot(self, cell: PlotCell) -> PlotCell:
+        held = self._before.cell_with_id(cell.unique_id)
+        nodes_before = held.nodes if isinstance(held, PlotCell) else ()
+        ranges_before = {node.node_id: node.story_word_range for node in nodes_before}
         nodes_kept_in_step: list[PlotNode] = []
         for node in cell.nodes:
-            if node.story_word_range is None:
+            if node.story_word_range is None or ranges_before.get(node.node_id) != node.story_word_range:
                 nodes_kept_in_step.append(node)
                 continue
             range_kept_in_step = self._where_the_words_went.range_kept_in_step(node.story_word_range)
@@ -212,14 +204,9 @@ class _PassagesKeptInStep(CellVisitor[Cell]):
 class PassagesSynchronizer(AuthorDocSynchronizer):
     def synchronize(self, before: Document, change: AuthorDocDiff) -> AuthorDocDiff:
         after = change._apply_the_diff(before)
-        cell_the_change_rewrites = _CellTheChangeRewrites()
-        cell_ids_the_change_rewrites = [cell_change.accept(cell_the_change_rewrites) for cell_change in change.changes]
         where_the_words_went = _where_the_story_words_went(before, after)
-        passages_kept_in_step = _PassagesKeptInStep(where_the_words_went)
-        cells_with_their_passages_in_step = [
-            cell if cell.unique_id in cell_ids_the_change_rewrites else cell.accept(passages_kept_in_step)
-            for cell in after.cells
-        ]
+        passages_kept_in_step = _PassagesKeptInStep(before, where_the_words_went)
+        cells_with_their_passages_in_step = [cell.accept(passages_kept_in_step) for cell in after.cells]
         document_with_its_passages_in_step = Document.from_cells(cells_with_their_passages_in_step, after.path)
         passages_moved = AuthorDocDiff.diff(after, document_with_its_passages_in_step)
         return passages_moved
