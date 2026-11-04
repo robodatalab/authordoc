@@ -14,6 +14,7 @@ import {
     PlotNode,
 } from "../../typescript/cells/plot_cell";
 import { StoryWordRange } from "../../typescript/cells/story_word_range";
+import { UnknownCell } from "../../typescript/cells/unknown_cell";
 import {
     StoryTextSpan,
     StoryWord,
@@ -235,6 +236,31 @@ describe("a plot's events", () => {
 
         expect(() => plot.getNodeById("e3")).toThrow();
     });
+
+    it("take a new moment, place, summary and words, one at a time", () => {
+        const [plot] = new Document(THE_PLOT).cells as PlotCell[];
+        const [event] = plot.nodes;
+
+        const timed = event.withTimestamp("2.1");
+        const moved = timed.withLocation("orbit");
+        const retold = moved.withSummary("Varn calls her daughter.");
+        const untold = retold.withStoryWordRange(null);
+
+        expect(untold).toEqual(new PlotNode("e1", null, "2.1", "orbit", "Varn calls her daughter."));
+        expect(event.summary).toBe("Captain Varn watches the news with her daughter.");
+    });
+
+    it("one is put in place of the event of its id", () => {
+        const [plot] = new Document(THE_PLOT).cells as PlotCell[];
+        const [first, second] = plot.nodes;
+        const retold = second.withSummary("Varn takes command of the corvette.");
+
+        const replotted = plot.withNode(retold);
+
+        expect(replotted.nodes).toEqual([first, retold]);
+        expect(replotted.edges).toEqual(plot.edges);
+        expect(plot.nodes).toEqual([first, second]);
+    });
 });
 
 describe("a plot's edges", () => {
@@ -262,6 +288,87 @@ describe("a plot's edges", () => {
         const plot = document.getPlotOfEdge(new PlotEdge("x2", "e3", "e4"));
 
         expect(plot.title).toBe("The bell");
+    });
+});
+
+describe("the plot of an event", () => {
+    const writtenDocument = () =>
+        Document.fromCells([
+            new PlotCell(
+                "The door",
+                [new PlotNode("e1", null), new PlotNode("e2", null)],
+                [new PlotEdge("x1", "e1", "e2")],
+                "",
+                false,
+                null,
+                "p1",
+            ),
+            new PlotCell(
+                "The bell",
+                [new PlotNode("e3", null), new PlotNode("e4", null)],
+                [new PlotEdge("x2", "e3", "e4")],
+                "",
+                false,
+                null,
+                "p2",
+            ),
+        ]);
+
+    it.each([
+        ["in the first plot", new PlotNode("e1", null), "The door"],
+        ["in the second plot", new PlotNode("e4", null), "The bell"],
+    ] as const)("belong to the plot that has them: %s", (_, node, expectedTitle) => {
+        const document = writtenDocument();
+
+        const plot = document.getPlotOfNode(node);
+
+        expect(plot.title).toBe(expectedTitle);
+    });
+});
+
+describe("a plot's edges of an event", () => {
+    // e1 leads to e2 and to e3, and e2 leads to e3.
+    const thePlot = () =>
+        new PlotCell(
+            "The door",
+            [new PlotNode("e1", null), new PlotNode("e2", null), new PlotNode("e3", null)],
+            [new PlotEdge("x1", "e1", "e2"), new PlotEdge("x2", "e1", "e3"), new PlotEdge("x3", "e2", "e3")],
+            "",
+            false,
+            null,
+            "p1",
+        );
+
+    it.each([
+        ["none lead to the first event", new PlotNode("e1", null), []],
+        ["one leads to an event", new PlotNode("e2", null), [new PlotEdge("x1", "e1", "e2")]],
+        [
+            "two lead to an event",
+            new PlotNode("e3", null),
+            [new PlotEdge("x2", "e1", "e3"), new PlotEdge("x3", "e2", "e3")],
+        ],
+    ] as const)("inbound are the edges that lead to the event: %s", (_, node, expected) => {
+        const plot = thePlot();
+
+        const inbound = plot.inboundEdges(node);
+
+        expect(inbound).toEqual(expected);
+    });
+
+    it.each([
+        [
+            "two leave an event",
+            new PlotNode("e1", null),
+            [new PlotEdge("x1", "e1", "e2"), new PlotEdge("x2", "e1", "e3")],
+        ],
+        ["one leaves an event", new PlotNode("e2", null), [new PlotEdge("x3", "e2", "e3")]],
+        ["none leave the last event", new PlotNode("e3", null), []],
+    ] as const)("outbound are the edges that leave the event: %s", (_, node, expected) => {
+        const plot = thePlot();
+
+        const outbound = plot.outboundEdges(node);
+
+        expect(outbound).toEqual(expected);
     });
 });
 
@@ -303,6 +410,41 @@ describe("replacing a cell", () => {
         const replaced = document.withCell(bell);
 
         expect(replaced.cells).toEqual(document.cells);
+    });
+});
+
+describe("getting a cell", () => {
+    const writtenDocument = () =>
+        Document.fromCells([
+            new MarkdownCell("The lantern had gone out.", false, null, "m1"),
+            new UnknownCell("epigraph", {}, "A line.", false, null, "e1"),
+            new UnknownCell("epigraph", {}, "Another line.", false, null, "e2"),
+        ]);
+
+    it("gives a cell of a known type", () => {
+        const document = writtenDocument();
+
+        const found = document.getCell(MarkdownCell, "markdown");
+
+        expect(found).toEqual(
+            expect.objectContaining({ uniqueId: "m1", source: "The lantern had gone out." }),
+        );
+    });
+
+    it.each([
+        [
+            "the first of two cells of the kind",
+            "epigraph",
+            expect.objectContaining({ uniqueId: "e1", source: "A line." }),
+        ],
+        ["none when no cell has the kind", "dedication", undefined],
+        ["none when the cell of the kind is of another type", "markdown", undefined],
+    ] as const)("gives the first unknown cell with the kind: %s", (_, kind, expected) => {
+        const document = writtenDocument();
+
+        const found = document.getCell(UnknownCell, kind);
+
+        expect(found).toEqual(expected);
     });
 });
 
