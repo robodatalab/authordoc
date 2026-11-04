@@ -33,6 +33,7 @@ marker opens a new cell. Markdown has the same bargain with fences.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TypeVar
 
 from authordoc.cells.cell import Cell
 from authordoc.cells.plot_cell import PlotCell, PlotEdge
@@ -42,6 +43,8 @@ from authordoc.parser import marker_for, parse
 from authordoc.visitors.marker_attributes import MarkerAttributes
 
 EXTENSION = ".author"
+
+_Cell = TypeVar("_Cell", bound=Cell)
 
 
 class Document:
@@ -104,6 +107,15 @@ class Document:
 
     def cell_with_id(self, cell_id: str) -> Cell | None:
         return next((cell for cell in self.cells if cell.unique_id == cell_id), None)
+
+    def get_cell(self, cell_type: type[_Cell], kind: str) -> _Cell | None:
+        """The first cell of `cell_type` whose kind is `kind`; None when the
+        document has no such cell."""
+        found = next(
+            (cell for cell in self.cells if isinstance(cell, cell_type) and cell.kind == kind),
+            None,
+        )
+        return found
 
     def with_cell(self, cell: Cell) -> Document:
         """A new document with `cell` in the place of the cell with its id; one with

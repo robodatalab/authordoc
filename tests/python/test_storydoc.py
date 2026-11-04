@@ -15,6 +15,7 @@ from authordoc.iterators.story_lines_iterator import StoryLinesIterator
 from authordoc.iterators.story_words_iterator import StoryWordsIterator
 from authordoc.storydoc import Document
 from authordoc.cells.blurb_cell import BlurbCell
+from authordoc.cells.cell import Cell
 from authordoc.cells.chapter_cell import ChapterCell
 from authordoc.cells.divider_cell import DIVIDER, DividerCell
 from authordoc.cells.image_cell import ImageCell
@@ -30,6 +31,7 @@ from authordoc.cells.salient_concept_cell import (
 from authordoc.cells.story_word_range import StoryWordRange
 from authordoc.cells.table_of_contents_cell import TableOfContentsCell
 from authordoc.cells.title_page_cell import TitlePageCell
+from authordoc.cells.unknown_cell import UnknownCell
 
 CORPUS = json.loads(
     (Path(__file__).parents[1] / "storydoc_corpus.json").read_text(encoding="utf-8")
@@ -214,6 +216,56 @@ class ReplacingACell(unittest.TestCase):
         replaced = self.document.with_cell(bell)
 
         self.assertEqual(replaced.cells, self.document.cells)
+
+
+class GettingACell(unittest.TestCase):
+    def setUp(self) -> None:
+        self.document = Document.from_cells(
+            [
+                MarkdownCell("The lantern had gone out.", False, None, "m1"),
+                UnknownCell("epigraph", {}, "A line.", False, None, "e1"),
+                UnknownCell("epigraph", {}, "Another line.", False, None, "e2"),
+            ]
+        )
+
+    @parameterized.expand(
+        [
+            (
+                "a_cell_of_a_known_type",
+                MarkdownCell,
+                "markdown",
+                MarkdownCell("The lantern had gone out.", False, None, "m1"),
+            ),
+            (
+                "the_first_of_two_cells_of_the_kind",
+                UnknownCell,
+                "epigraph",
+                UnknownCell("epigraph", {}, "A line.", False, None, "e1"),
+            ),
+            (
+                "none_when_no_cell_has_the_kind",
+                UnknownCell,
+                "dedication",
+                None,
+            ),
+            (
+                "none_when_the_cell_of_the_kind_is_of_another_type",
+                UnknownCell,
+                "markdown",
+                None,
+            ),
+        ]
+    )
+    def test_gives_the_first_cell_of_the_type_with_the_kind(
+        self,
+        _,
+        cell_type: type[Cell],
+        kind: str,
+        expected: Cell | None,
+    ) -> None:
+        found = self.document.get_cell(cell_type, kind)
+
+        self.assertEqual(found, expected)
 
 
 class Chapters(unittest.TestCase):
