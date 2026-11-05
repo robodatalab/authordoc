@@ -130,26 +130,10 @@ class Document:
         return found
 
     def with_cells(self, cells: Sequence[Cell]) -> Document:
-        """A new document with each of `cells` in place of the cell with its id,
-        every other cell staying where it is, kept in step: a range of the story's
-        words a cell sets is kept as it sets it, and every other range moves with
-        the words it points at. The cells are found by their ids, so the order they
-        come in makes no difference; one whose id the document lacks is left out.
-        No document is changed: the one you hold stays as it is."""
-        cell_of_id = {cell.unique_id: cell for cell in cells}
-        replaced = [cell_of_id.get(held.unique_id, held) for held in self._cells]
-        with_the_cells = self._with_cells_in_order(replaced)
-        return with_the_cells
-
-    def with_cell(self, cell: Cell) -> Document:
-        """A new document with `cell` in the place of the cell with its id, kept in
-        step as `with_cells` keeps it."""
-        with_the_cell = self.with_cells([cell])
-        return with_the_cell
-
-    def _with_cells_in_order(self, cells: Sequence[Cell]) -> Document:
-        """A new document made of `cells`, in their order, kept in step: private to
-        authordoc, whose changes that add, remove or reorder cells go through it."""
+        """A new document made of `cells`, in their order: a cell with a new id is
+        added where it stands, and a cell left out is removed. Whatever points at
+        the story's words keeps pointing at the same words. No document is
+        changed: the one you hold stays as it is."""
         # The diff and the synchronizer read documents, so they are imported where
         # they are used.
         from authordoc.diff import AuthorDocDiff
@@ -161,6 +145,13 @@ class Document:
         passages_moved = synchronizer.synchronize(self, change)
         synchronized = passages_moved._apply_the_diff(written)
         return synchronized
+
+    def with_cell(self, cell: Cell) -> Document:
+        """A new document with `cell` in the place of the cell with its id, kept in
+        step as `with_cells` keeps it."""
+        replaced = [cell if held.unique_id == cell.unique_id else held for held in self._cells]
+        with_the_cell = self.with_cells(replaced)
+        return with_the_cell
 
     def salient_concepts(self) -> list[SalientConceptCell]:
         return [cell for cell in self._cells if isinstance(cell, SalientConceptCell)]
