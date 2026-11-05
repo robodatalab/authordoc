@@ -131,7 +131,7 @@ class SalientConceptPassages(unittest.TestCase):
 
         passages_moved = synchronizer.synchronize(before, change)
 
-        story = passages_moved._apply_the_diff(after)
+        story = passages_moved.apply_the_diff(after)
         (concept,) = story.salient_concepts()
         self.assertEqual(concept.references, expected)
 
@@ -184,7 +184,7 @@ class PlotNodes(unittest.TestCase):
 
         passages_moved = synchronizer.synchronize(before, change)
 
-        story = passages_moved._apply_the_diff(after)
+        story = passages_moved.apply_the_diff(after)
         (plot,) = story.plots()
         self.assertEqual(plot.nodes, expected_nodes)
         self.assertEqual(plot.edges, expected_edges)
