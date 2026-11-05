@@ -203,7 +203,7 @@ class _PassagesKeptInStep(CellVisitor[Cell]):
 
 class PassagesSynchronizer(AuthorDocSynchronizer):
     def synchronize(self, before: Document, change: AuthorDocDiff) -> AuthorDocDiff:
-        after = change._apply_the_diff(before)
+        after = change.apply_the_diff(before)
         where_the_words_went = _where_the_story_words_went(before, after)
         passages_kept_in_step = _PassagesKeptInStep(before, where_the_words_went)
         cells_with_their_passages_in_step = [cell.accept(passages_kept_in_step) for cell in after.cells]

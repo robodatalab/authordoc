@@ -2,7 +2,6 @@ import json
 import tempfile
 import unittest
 from collections.abc import Callable
-from itertools import permutations
 from pathlib import Path
 from unittest.mock import patch
 from uuid import UUID
@@ -301,14 +300,198 @@ class DocumentWithCells(unittest.TestCase):
         )
 
     @parameterized.expand(
-        permutations(
+        [
+            (
+                "a_cell_added",
+                [
+                    MarkdownCell("She saw the door.", False, None, "c2"),
+                    MarkdownCell("It rang.", False, None, "c4"),
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+                StoryWordRange(0, 9),
+                "She saw the door.\n\nIt rang.\n\nHe heard the bell.",
+            ),
+            (
+                "a_cell_removed",
+                [
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+                StoryWordRange(0, 3),
+                "He heard the bell.",
+            ),
+            (
+                "the_cells_reordered",
+                [
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    MarkdownCell("She saw the door.", False, None, "c2"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+                StoryWordRange(0, 7),
+                "He heard the bell.\n\nShe saw the door.",
+            ),
+        ]
+    )
+    def test_the_story_is_told_in_the_order_of_the_cells(
+        self, _, cells: list[Cell], story_word_range: StoryWordRange, expected_story: str
+    ) -> None:
+        changed = self.document.with_cells(cells)
+
+        story_words = StoryWordsIterator(changed)
+        self.assertEqual(story_words.text(story_word_range), expected_story)
+
+    @parameterized.expand(
+        [
+            (
+                "a_cell_is_added",
+                [
+                    MarkdownCell("She saw the door.", False, None, "c2"),
+                    MarkdownCell("It rang.", False, None, "c4"),
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+            ),
+            (
+                "a_cell_before_them_is_removed",
+                [
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+            ),
+            (
+                "the_cells_are_reordered",
+                [
+                    MarkdownCell("He heard the bell.", False, None, "c3"),
+                    MarkdownCell("She saw the door.", False, None, "c2"),
+                    SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                    PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                ],
+            ),
+        ]
+    )
+    def test_passages_and_events_keep_their_words_when(self, _, cells: list[Cell]) -> None:
+        changed = self.document.with_cells(cells)
+
+        story_words = StoryWordsIterator(changed)
+        (concept,) = changed.salient_concepts()
+        (reference,) = concept.references
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(story_words.text(reference.story_word_range), "the bell.")
+        self.assertEqual(story_words.text(event.story_word_range), "He heard the bell.")
+
+    def test_passages_and_events_lose_the_words_of_a_removed_cell(self) -> None:
+        changed = self.document.with_cells(
             [
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+            ]
+        )
+
+        (concept,) = changed.salient_concepts()
+        (plot,) = changed.plots()
+        (event,) = plot.nodes
+        self.assertEqual(concept.references, ())
+        self.assertIsNone(event.story_word_range)
+
+    def test_a_cell_added_points_at_the_words_it_sets(self) -> None:
+        changed = self.document.with_cells(
+            [
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7))], [], "", False, None, "p1"),
+                SalientConceptCell("Door", [SalientConceptReference("r2", StoryWordRange(2, 3))], "What she saw.", False, None, "k2"),
+            ]
+        )
+
+        story_words = StoryWordsIterator(changed)
+        (_, door) = changed.salient_concepts()
+        (reference,) = door.references
+        self.assertEqual(story_words.text(reference.story_word_range), "the door.")
+
+    @parameterized.expand(
+        [
+            (
                 MarkdownCell("She saw the old door.", False, None, "c2"),
                 MarkdownCell("He heard the bell.", False, None, "c3"),
                 SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
                 PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
-            ]
-        )
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(5, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+        ]
     )
     def test_content_is_invariant_under_different_ordering_of_the_cells_when_prose_before_an_event_is_rewritten(self, *cells: Cell) -> None:
         changed = self.document.with_cells(cells)
@@ -322,14 +505,80 @@ class DocumentWithCells(unittest.TestCase):
         self.assertEqual(story_words.text(event.story_word_range), "He heard the bell.")
 
     @parameterized.expand(
-        permutations(
-            [
+        [
+            (
                 MarkdownCell("She saw the door.", False, None, "c2"),
                 MarkdownCell("He heard the old bell.", False, None, "c3"),
                 SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
                 PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
-            ]
-        )
+            ),
+            (
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+            ),
+            (
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+            (
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 8))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the door.", False, None, "c2"),
+                MarkdownCell("He heard the old bell.", False, None, "c3"),
+            ),
+        ]
     )
     def test_content_is_invariant_under_different_ordering_of_the_cells_when_the_events_own_prose_is_rewritten(self, *cells: Cell) -> None:
         changed = self.document.with_cells(cells)
@@ -343,14 +592,80 @@ class DocumentWithCells(unittest.TestCase):
         self.assertEqual(story_words.text(event.story_word_range), "He heard the old bell.")
 
     @parameterized.expand(
-        permutations(
-            [
+        [
+            (
                 MarkdownCell("She saw the old door.", False, None, "c2"),
                 MarkdownCell("He heard the bell.", False, None, "c3"),
                 SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
                 PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
-            ]
-        )
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+            (
+                PlotCell("The bell", [PlotNode("n-bell", StoryWordRange(4, 7)), PlotNode("n-door", StoryWordRange(2, 4))], [], "", False, None, "p1"),
+                SalientConceptCell("Bell", [SalientConceptReference("r1", StoryWordRange(6, 7))], "What he heard.", False, None, "k1"),
+                MarkdownCell("She saw the old door.", False, None, "c2"),
+                MarkdownCell("He heard the bell.", False, None, "c3"),
+            ),
+        ]
     )
     def test_content_is_invariant_under_different_ordering_of_the_cells_when_a_new_event_is_set_against_new_prose(self, *cells: Cell) -> None:
         changed = self.document.with_cells(cells)

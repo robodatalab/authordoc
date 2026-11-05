@@ -135,18 +135,18 @@ export class Document {
     }
 
     /**
-     * A new document with each of `cells` in place of the cell with its id,
-     * every other cell staying where it is, kept in step: a range of the story's
-     * words a cell sets is kept as it sets it, and every other range moves with
-     * the words it points at. The cells are found by their ids, so the order they
-     * come in makes no difference; one whose id the document lacks is left out.
-     * No document is changed: the one you hold stays as it is.
+     * A new document made of `cells`, in their order: a cell with a new id is
+     * added where it stands, and a cell left out is removed. Whatever points at
+     * the story's words keeps pointing at the same words. No document is
+     * changed: the one you hold stays as it is.
      */
     withCells(cells: readonly Cell[]): Document {
-        const cellOfId = new Map(cells.map((cell) => [cell.uniqueId, cell]));
-        const replaced = this._cells.map((held) => cellOfId.get(held.uniqueId) ?? held);
-        const withTheCells = this.withCellsInOrder(replaced);
-        return withTheCells;
+        const written = Document.fromCells(cells, this._path);
+        const change = AuthorDocDiff.diff(this, written);
+        const synchronizer = new PassagesSynchronizer();
+        const passagesMoved = synchronizer.synchronize(this, change);
+        const synchronized = passagesMoved.applyTheDiff(written);
+        return synchronized;
     }
 
     /**
@@ -154,24 +154,9 @@ export class Document {
      * step as `withCells` keeps it.
      */
     withCell(cell: Cell): Document {
-        const withTheCell = this.withCells([cell]);
+        const replaced = this._cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
+        const withTheCell = this.withCells(replaced);
         return withTheCell;
-    }
-
-    /**
-     * A new document made of `cells`, in their order, kept in step: internal to
-     * authordoc, whose changes that add, remove or reorder cells go through it,
-     * and left out of the types it publishes.
-     *
-     * @internal
-     */
-    withCellsInOrder(cells: readonly Cell[]): Document {
-        const written = Document.fromCells(cells, this._path);
-        const change = AuthorDocDiff.diff(this, written);
-        const synchronizer = new PassagesSynchronizer();
-        const passagesMoved = synchronizer.synchronize(this, change);
-        const synchronized = passagesMoved.applyTheDiff(written);
-        return synchronized;
     }
 
     salientConcepts(): SalientConceptCell[] {

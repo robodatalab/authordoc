@@ -509,22 +509,6 @@ describe("changing a document", () => {
     });
 });
 
-// Every order the items can be given in.
-function permutationsOf<Item>(items: readonly Item[]): Item[][] {
-    if (items.length === 0) {
-        return [[]];
-    }
-    const permutations: Item[][] = [];
-    for (const [standing, item] of items.entries()) {
-        const others = [...items.slice(0, standing), ...items.slice(standing + 1)];
-        const ordersOfTheOthers = permutationsOf(others);
-        for (const order of ordersOfTheOthers) {
-            permutations.push([item, ...order]);
-        }
-    }
-    return permutations;
-}
-
 describe("Document.withCells", () => {
     // The story's words: "She(0) saw(1) the(2) door.(3)" in c2, "He(4) heard(5)
     // the(6) bell.(7)" in c3. The concept points at "the bell.", the event at all of c3.
@@ -543,14 +527,78 @@ describe("Document.withCells", () => {
             new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
         ]);
 
-    it.each(
-        permutationsOf([
-            new MarkdownCell("She saw the old door.", false, null, "c2"),
-            new MarkdownCell("He heard the bell.", false, null, "c3"),
-            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
-            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
-        ]),
-    )("content is invariant under different ordering of the cells when prose before an event is rewritten: %#", (...cells) => {
+    it.each<[string, Cell[], StoryWordRange, string]>([
+        [
+            "a cell added",
+            [
+                new MarkdownCell("She saw the door.", false, null, "c2"),
+                new MarkdownCell("It rang.", false, null, "c4"),
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+            new StoryWordRange(0, 9),
+            "She saw the door.\n\nIt rang.\n\nHe heard the bell.",
+        ],
+        [
+            "a cell removed",
+            [
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+            new StoryWordRange(0, 3),
+            "He heard the bell.",
+        ],
+        [
+            "the cells reordered",
+            [
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new MarkdownCell("She saw the door.", false, null, "c2"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+            new StoryWordRange(0, 7),
+            "He heard the bell.\n\nShe saw the door.",
+        ],
+    ])("the story is told in the order of the cells: %s", (_, cells, storyWordRange, expectedStory) => {
+        const document = writtenDocument();
+
+        const changed = document.withCells(cells);
+
+        const storyWords = new StoryWordsIterator(changed);
+        expect(storyWords.text(storyWordRange)).toBe(expectedStory);
+    });
+
+    it.each<[string, Cell[]]>([
+        [
+            "a cell is added",
+            [
+                new MarkdownCell("She saw the door.", false, null, "c2"),
+                new MarkdownCell("It rang.", false, null, "c4"),
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+        ],
+        [
+            "a cell before them is removed",
+            [
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+        ],
+        [
+            "the cells are reordered",
+            [
+                new MarkdownCell("He heard the bell.", false, null, "c3"),
+                new MarkdownCell("She saw the door.", false, null, "c2"),
+                new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+                new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            ],
+        ],
+    ])("passages and events keep their words when %s", (_, cells) => {
         const document = writtenDocument();
 
         const changed = document.withCells(cells);
@@ -564,14 +612,200 @@ describe("Document.withCells", () => {
         expect(storyWords.text(event.storyWordRange!)).toBe("He heard the bell.");
     });
 
-    it.each(
-        permutationsOf([
+    it("passages and events lose the words of a removed cell", () => {
+        const document = writtenDocument();
+
+        const changed = document.withCells([
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+        ]);
+
+        const [concept] = changed.salientConcepts();
+        const [plot] = changed.plots();
+        const [event] = plot.nodes;
+        expect(concept.references).toEqual([]);
+        expect(event.storyWordRange).toBeNull();
+    });
+
+    it("a cell added points at the words it sets", () => {
+        const document = writtenDocument();
+
+        const changed = document.withCells([
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7))], [], "", false, null, "p1"),
+            new SalientConceptCell("Door", [new SalientConceptReference("r2", new StoryWordRange(2, 3))], "What she saw.", false, null, "k2"),
+        ]);
+
+        const storyWords = new StoryWordsIterator(changed);
+        const [, door] = changed.salientConcepts();
+        const [reference] = door.references;
+        expect(storyWords.text(reference.storyWordRange)).toBe("the door.");
+    });
+
+    it.each<Cell[]>([
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(5, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+    ])("content is invariant under different ordering of the cells when prose before an event is rewritten: %#", (...cells) => {
+        const document = writtenDocument();
+
+        const changed = document.withCells(cells);
+
+        const storyWords = new StoryWordsIterator(changed);
+        const [concept] = changed.salientConcepts();
+        const [reference] = concept.references;
+        const [plot] = changed.plots();
+        const [event] = plot.nodes;
+        expect(storyWords.text(reference.storyWordRange)).toBe("the bell.");
+        expect(storyWords.text(event.storyWordRange!)).toBe("He heard the bell.");
+    });
+
+    it.each<Cell[]>([
+        [
             new MarkdownCell("She saw the door.", false, null, "c2"),
             new MarkdownCell("He heard the old bell.", false, null, "c3"),
             new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
             new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
-        ]),
-    )("content is invariant under different ordering of the cells when the event's own prose is rewritten: %#", (...cells) => {
+        ],
+        [
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+        ],
+        [
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+        [
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 8))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the door.", false, null, "c2"),
+            new MarkdownCell("He heard the old bell.", false, null, "c3"),
+        ],
+    ])("content is invariant under different ordering of the cells when the event's own prose is rewritten: %#", (...cells) => {
         const document = writtenDocument();
 
         const changed = document.withCells(cells);
@@ -585,14 +819,80 @@ describe("Document.withCells", () => {
         expect(storyWords.text(event.storyWordRange!)).toBe("He heard the old bell.");
     });
 
-    it.each(
-        permutationsOf([
+    it.each<Cell[]>([
+        [
             new MarkdownCell("She saw the old door.", false, null, "c2"),
             new MarkdownCell("He heard the bell.", false, null, "c3"),
             new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
             new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
-        ]),
-    )("content is invariant under different ordering of the cells when a new event is set against new prose: %#", (...cells) => {
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+        [
+            new PlotCell("The bell", [new PlotNode("n-bell", new StoryWordRange(4, 7)), new PlotNode("n-door", new StoryWordRange(2, 4))], [], "", false, null, "p1"),
+            new SalientConceptCell("Bell", [new SalientConceptReference("r1", new StoryWordRange(6, 7))], "What he heard.", false, null, "k1"),
+            new MarkdownCell("She saw the old door.", false, null, "c2"),
+            new MarkdownCell("He heard the bell.", false, null, "c3"),
+        ],
+    ])("content is invariant under different ordering of the cells when a new event is set against new prose: %#", (...cells) => {
         const document = writtenDocument();
 
         const changed = document.withCells(cells);

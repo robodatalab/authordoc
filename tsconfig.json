@@ -15,7 +15,6 @@
         "rootDir": "typescript",
         "outDir": "lib",
         "declaration": true,
-        "stripInternal": true,
         "strict": true
     }
 }

@@ -80,11 +80,12 @@ export class AuthorDocDiff {
     }
 
     /**
-     * The document with the changes made, and nothing kept in step: internal to
-     * authordoc, whose own changes come kept in step, and left out of the types
-     * it publishes. Change a document with `Document.withCells`.
-     *
-     * @internal
+     * The document with the changes made. This does NOT trigger the
+     * synchronizers: nothing that points at the story's words is kept in step.
+     * Use it only when applying the diff GUARANTEES the document stays
+     * consistent, as undoing or redoing a diff taken between two consistent
+     * documents does. Change a document otherwise with `Document.withCells` or
+     * `Document.withCell`.
      */
     applyTheDiff(document: Document): Document {
         let cells: readonly Cell[] = document.cells;

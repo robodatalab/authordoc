@@ -120,7 +120,7 @@ def _move_section(document: Document, section: CellsInASection, lands: int) -> D
     del cells[stands_at : stands_at + len(cells_held)]
     lands_after_the_move = lands - len(cells_held) if lands > stands_at else lands
     cells[lands_after_the_move:lands_after_the_move] = moved
-    moved_document = document._with_cells_in_order(cells)
+    moved_document = document.with_cells(cells)
     return moved_document
 
 
@@ -178,5 +178,5 @@ def remove_the_section(document: Document, cell_id: str) -> Document:
     cells_held = cells_within_a_section(standing.section)
     cells = document.cells
     del cells[stands_at : stands_at + len(cells_held)]
-    removed = document._with_cells_in_order(cells)
+    removed = document.with_cells(cells)
     return removed
