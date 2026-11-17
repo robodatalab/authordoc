@@ -240,15 +240,15 @@
         },
         {
             "name": "a plot's body is its overview and its events, one to a line",
-            "text": "<!-- cell: plot id=\"p2\" title=\"Captain Varn and her daughter\" edges=\"x1:e1>e2, x2:e2>e3\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" location=\"earth, Varn's house\" words=\"412-468\">Captain Varn watches the news with her daughter. </li>\n<li id=\"e2\" timestamp=\"1.2\" location=\"earth, command center\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" location=\"earth, Varn's house\">Varn says goodbye and promises to talk every day.</li>\n</ol>\n",
+            "text": "<!-- cell: plot id=\"p2\" title=\"Captain Varn and her daughter\" edges=\"x1:e1>e2, x2:e2>e3\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\" words=\"412-468\">Captain Varn watches the news with her daughter. </li>\n<li id=\"e2\" timestamp=\"1.2\" place=\"c1\" characters=\"v1\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" place=\"h1\">Varn says goodbye and promises to talk every day.</li>\n</ol>\n",
             "cells": [
                 {
                     "kind": "plot",
-                    "source": "<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" location=\"earth, Varn's house\" words=\"412-468\">Captain Varn watches the news with her daughter.</li>\n<li id=\"e2\" timestamp=\"1.2\" location=\"earth, command center\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" location=\"earth, Varn's house\">Varn says goodbye and promises to talk every day.</li>\n</ol>",
+                    "source": "<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\" words=\"412-468\">Captain Varn watches the news with her daughter.</li>\n<li id=\"e2\" timestamp=\"1.2\" place=\"c1\" characters=\"v1\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" place=\"h1\">Varn says goodbye and promises to talk every day.</li>\n</ol>",
                     "id": "p2"
                 }
             ],
-            "dumped": "<!-- cell: plot id=\"p2\" title=\"Captain Varn and her daughter\" edges=\"x1:e1>e2, x2:e2>e3\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" location=\"earth, Varn's house\" words=\"412-468\">Captain Varn watches the news with her daughter.</li>\n<li id=\"e2\" timestamp=\"1.2\" location=\"earth, command center\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" location=\"earth, Varn's house\">Varn says goodbye and promises to talk every day.</li>\n</ol>\n"
+            "dumped": "<!-- cell: plot id=\"p2\" title=\"Captain Varn and her daughter\" edges=\"x1:e1>e2, x2:e2>e3\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\" words=\"412-468\">Captain Varn watches the news with her daughter.</li>\n<li id=\"e2\" timestamp=\"1.2\" place=\"c1\" characters=\"v1\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" place=\"h1\">Varn says goodbye and promises to talk every day.</li>\n</ol>\n"
         },
         {
             "name": "a plot written before plots had events is written back with them",
@@ -264,15 +264,15 @@
         },
         {
             "name": "a plot's overview keeps its line breaks and quotes in one attribute",
-            "text": "<!-- cell: plot id=\"p3\" -->\n\n<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" location=\"the hall, by the door\">She opens the door.</li>\n</ol>\n",
+            "text": "<!-- cell: plot id=\"p3\" -->\n\n<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" place=\"h2\">She opens the door.</li>\n</ol>\n",
             "cells": [
                 {
                     "kind": "plot",
-                    "source": "<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" location=\"the hall, by the door\">She opens the door.</li>\n</ol>",
+                    "source": "<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" place=\"h2\">She opens the door.</li>\n</ol>",
                     "id": "p3"
                 }
             ],
-            "dumped": "<!-- cell: plot id=\"p3\" -->\n\n<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" location=\"the hall, by the door\">She opens the door.</li>\n</ol>\n"
+            "dumped": "<!-- cell: plot id=\"p3\" -->\n\n<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" place=\"h2\">She opens the door.</li>\n</ol>\n"
         },
         {
             "name": "a character is a name and the story's facts about them",
@@ -297,6 +297,18 @@
                 }
             ],
             "dumped": "<!-- cell: place id=\"h1\" title=\"Varn's house\" -->\n\nA narrow house on the cliffs, where she and her daughter watch the launches.\n"
+        },
+        {
+            "name": "a location written as text, before events referenced places, is dropped",
+            "text": "<!-- cell: plot id=\"p4\" -->\n\n<ol title=\"She leaves.\">\n<li id=\"e1\" timestamp=\"2.1\" location=\"earth, the harbour\" characters=\"v1\">She boards the shuttle.</li>\n</ol>\n",
+            "cells": [
+                {
+                    "kind": "plot",
+                    "source": "<ol title=\"She leaves.\">\n<li id=\"e1\" timestamp=\"2.1\" characters=\"v1\">She boards the shuttle.</li>\n</ol>",
+                    "id": "p4"
+                }
+            ],
+            "dumped": "<!-- cell: plot id=\"p4\" -->\n\n<ol title=\"She leaves.\">\n<li id=\"e1\" timestamp=\"2.1\" characters=\"v1\">She boards the shuttle.</li>\n</ol>\n"
         }
     ]
 }

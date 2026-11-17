@@ -190,7 +190,11 @@ export class Document {
                     nodeOfThePlot.storyWordRange?.firstWord === node.storyWordRange?.firstWord &&
                     nodeOfThePlot.storyWordRange?.lastWord === node.storyWordRange?.lastWord &&
                     nodeOfThePlot.timestamp === node.timestamp &&
-                    nodeOfThePlot.location === node.location &&
+                    nodeOfThePlot.placeId === node.placeId &&
+                    nodeOfThePlot.characterIds.length === node.characterIds.length &&
+                    nodeOfThePlot.characterIds.every(
+                        (characterId, at) => characterId === node.characterIds[at],
+                    ) &&
                     nodeOfThePlot.summary === node.summary,
             ),
         );
