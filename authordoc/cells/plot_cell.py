@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, TypeVar
 from uuid import uuid4
 
 from authordoc.cells.cell import Cell
+from authordoc.cells.character_cell import CharacterCell
+from authordoc.cells.place_cell import PlaceCell
 from authordoc.cells.salient_concept_cell import SalientConceptCell
 from authordoc.cells.story_word_range import StoryWordRange
 from authordoc.written_attributes import attributes_in, written_attribute_value
@@ -21,14 +23,15 @@ PLOT = "plot"
 # element to a line:
 #
 #     <ol title="How Captain Varn gave her life to buy her daughter time.">
-#     <li id="e1" timestamp="1.1" location="earth, Varn's house" words="412-468">Captain Varn watches the news with her daughter.</li>
-#     <li id="e2" timestamp="1.2" location="earth, command center">Varn is given command of the corvette.</li>
+#     <li id="e1" timestamp="1.1" place="h1" characters="v1, d1" words="412-468">Captain Varn watches the news with her daughter.</li>
+#     <li id="e2" timestamp="1.2" place="c1" characters="v1">Varn is given command of the corvette.</li>
 #     </ol>
 #
 # The attributes are written as a cell marker's are, and an event's summary is
 # the rest of its line, up to the closing tag. The timestamps are a clock the
 # whole manuscript shares, so a plot skips the moments nothing happens in it;
-# the location runs from the broadest place to the most specific; and `words`
+# `place` and `characters` are the ids of the place the event happens in and of
+# the characters in it; and `words`
 # are the story's words that tell the event, once there are any.
 _ATTRIBUTES = r'((?:\s+[A-Za-z0-9][A-Za-z0-9_-]*\s*=\s*"(?:[^"\\]|\\.)*")*)\s*'
 _EVENTS_OPENED = re.compile(rf"^<ol{_ATTRIBUTES}>$")
@@ -39,7 +42,8 @@ _EVENT_WORDS = re.compile(r"^(\d+)-(\d+)$")
 _OVERVIEW = "title"
 _EVENT_ID = "id"
 _TIMESTAMP = "timestamp"
-_LOCATION = "location"
+_PLACE = "place"
+_CHARACTERS = "characters"
 _WORDS = "words"
 
 
@@ -48,8 +52,22 @@ class PlotNode:
     node_id: str
     story_word_range: StoryWordRange | None
     timestamp: str = ""
-    location: str = ""
+    place_id: str = ""
+    character_ids: Sequence[str] = ()
     summary: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "character_ids", tuple(self.character_ids))
+
+    def place(self, document: Document) -> PlaceCell | None:
+        referenced = document.cell_with_id(self.place_id)
+        place = referenced if isinstance(referenced, PlaceCell) else None
+        return place
+
+    def characters(self, document: Document) -> list[CharacterCell]:
+        referenced = [document.cell_with_id(character_id) for character_id in self.character_ids]
+        characters = [cell for cell in referenced if isinstance(cell, CharacterCell)]
+        return characters
 
     def with_story_word_range(self, story_word_range: StoryWordRange | None) -> PlotNode:
         with_the_words = replace(self, story_word_range=story_word_range)
@@ -59,9 +77,15 @@ class PlotNode:
         with_the_timestamp = replace(self, timestamp=timestamp)
         return with_the_timestamp
 
-    def with_location(self, location: str) -> PlotNode:
-        with_the_location = replace(self, location=location)
-        return with_the_location
+    def with_place(self, place: PlaceCell | None) -> PlotNode:
+        place_id = "" if place is None else place.unique_id
+        with_the_place = replace(self, place_id=place_id)
+        return with_the_place
+
+    def with_characters(self, characters: Sequence[CharacterCell]) -> PlotNode:
+        character_ids = [character.unique_id for character in characters]
+        with_the_characters = replace(self, character_ids=character_ids)
+        return with_the_characters
 
     def with_summary(self, summary: str) -> PlotNode:
         with_the_summary = replace(self, summary=summary)
@@ -216,11 +240,16 @@ def _plot_event_read(written_attributes: str, summary: str) -> PlotNode:
     story_word_range = (
         None if words is None else StoryWordRange(int(words.group(1)), int(words.group(2)))
     )
+    written_character_ids = [
+        character_id.strip() for character_id in attributes.get(_CHARACTERS, "").split(",")
+    ]
+    character_ids = [character_id for character_id in written_character_ids if character_id]
     return PlotNode(
         node_id,
         story_word_range,
         attributes.get(_TIMESTAMP, ""),
-        attributes.get(_LOCATION, ""),
+        attributes.get(_PLACE, ""),
+        character_ids,
         summary.strip(),
     )
 
@@ -231,11 +260,13 @@ def _written_plot_event(node: PlotNode) -> str:
         if node.story_word_range is None
         else f"{node.story_word_range.first_word}-{node.story_word_range.last_word}"
     )
+    character_ids = ", ".join(node.character_ids)
     attributes = _written_attributes(
         [
             (_EVENT_ID, node.node_id),
             (_TIMESTAMP, node.timestamp),
-            (_LOCATION, node.location),
+            (_PLACE, node.place_id),
+            (_CHARACTERS, character_ids),
             (_WORDS, words),
         ]
     )

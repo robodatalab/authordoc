@@ -15,15 +15,22 @@ from authordoc.iterators.prose_cells_iterator import ProseCellsIterator
 from authordoc.iterators.story_lines_iterator import StoryLinesIterator
 from authordoc.iterators.story_words_iterator import StoryWordsIterator
 from authordoc.storydoc import Document
-from authordoc.story_sections import move_the_section_down, move_the_section_up, remove_the_section
+from authordoc.story_sections import (
+    move_the_section_down,
+    move_the_section_up,
+    remove_the_section,
+    stands_outside_the_story,
+)
 from authordoc.cells.blurb_cell import BlurbCell
 from authordoc.cells.cell import Cell
 from authordoc.cells.chapter_cell import ChapterCell
+from authordoc.cells.character_cell import CharacterCell
 from authordoc.cells.divider_cell import DIVIDER, DividerCell
 from authordoc.cells.image_cell import ImageCell
 from authordoc.cells.markdown_cell import MarkdownCell
 from authordoc.cells.note_cell import NoteCell
 from authordoc.cells.part_cell import PartCell
+from authordoc.cells.place_cell import PlaceCell
 from authordoc.cells.plot_cell import PlotCell, PlotEdge, PlotNode
 from authordoc.cells.recap_cell import RecapCell
 from authordoc.cells.salient_concept_cell import (
@@ -1211,14 +1218,14 @@ class PlotEvents(unittest.TestCase):
         '<!-- cell: plot id="p2" title="Captain Varn and her daughter" edges="x1:e1>e2" -->\n'
         '\n'
         '<ol title="How Captain Varn gave her life to buy her daughter time.">\n'
-        '<li id="e1" timestamp="1.1" location="earth, Varn\'s house" words="412-468">'
+        '<li id="e1" timestamp="1.1" place="h1" characters="v1, d1" words="412-468">'
         'Captain Varn watches the news with her daughter.</li>\n'
-        '<li id="e2" timestamp="1.4" location="earth, command center">'
+        '<li id="e2" timestamp="1.4" place="c1" characters="v1">'
         'Varn is given command of the corvette.</li>\n'
         '</ol>\n'
     )
 
-    def test_are_read_with_their_timestamp_location_words_and_summary(self) -> None:
+    def test_are_read_with_their_timestamp_place_characters_words_and_summary(self) -> None:
         (plot,) = Document(self.THE_PLOT).plots()
 
         self.assertEqual(
@@ -1230,14 +1237,16 @@ class PlotEvents(unittest.TestCase):
                         "e1",
                         StoryWordRange(412, 468),
                         "1.1",
-                        "earth, Varn's house",
+                        "h1",
+                        ["v1", "d1"],
                         "Captain Varn watches the news with her daughter.",
                     ),
                     PlotNode(
                         "e2",
                         None,
                         "1.4",
-                        "earth, command center",
+                        "c1",
+                        ["v1"],
                         "Varn is given command of the corvette.",
                     ),
                 ],
@@ -1253,8 +1262,8 @@ class PlotEvents(unittest.TestCase):
         plot = PlotCell(
             "The door",
             [
-                PlotNode("e2", None, "1.2", "the hall", "She opens the door."),
-                PlotNode("e1", StoryWordRange(2, 3), "1.1", "the hall", "She finds the door."),
+                PlotNode("e2", None, "1.2", "h2", [], "She opens the door."),
+                PlotNode("e1", StoryWordRange(2, 3), "1.1", "h2", ["v1"], "She finds the door."),
             ],
             [PlotEdge("x1", "e1", "e2")],
             "She finds a door, and opens it.",
@@ -1270,8 +1279,8 @@ class PlotEvents(unittest.TestCase):
             '<!-- cell: plot id="p1" title="The door" edges="x1:e1>e2" -->\n'
             '\n'
             '<ol title="She finds a door, and opens it.">\n'
-            '<li id="e2" timestamp="1.2" location="the hall">She opens the door.</li>\n'
-            '<li id="e1" timestamp="1.1" location="the hall" words="2-3">She finds the door.</li>\n'
+            '<li id="e2" timestamp="1.2" place="h2">She opens the door.</li>\n'
+            '<li id="e1" timestamp="1.1" place="h2" characters="v1" words="2-3">She finds the door.</li>\n'
             '</ol>\n',
         )
 
@@ -1288,13 +1297,13 @@ class PlotEvents(unittest.TestCase):
 
         rewritten = plot.with_source(
             '<ol title="A mother.">\n'
-            '<li id="e1" timestamp="2.1" location="orbit">Varn calls her daughter.</li>\n'
+            '<li id="e1" timestamp="2.1" place="o1">Varn calls her daughter.</li>\n'
             '</ol>'
         )
 
         self.assertEqual(rewritten.overview, "A mother.")
         self.assertEqual(
-            rewritten.nodes, (PlotNode("e1", None, "2.1", "orbit", "Varn calls her daughter."),)
+            rewritten.nodes, (PlotNode("e1", None, "2.1", "o1", [], "Varn calls her daughter."),)
         )
         self.assertEqual(rewritten.edges, plot.edges)
 
@@ -1311,15 +1320,77 @@ class PlotEvents(unittest.TestCase):
         with self.assertRaises(KeyError):
             plot.get_node_by_id("e3")
 
-    def test_take_a_new_moment_place_summary_and_words_one_at_a_time(self) -> None:
+    def test_take_a_new_moment_place_characters_summary_and_words_one_at_a_time(self) -> None:
         (plot,) = Document(self.THE_PLOT).plots()
         event, _ = plot.nodes
 
-        moved = event.with_timestamp("2.1").with_location("orbit")
-        retold = moved.with_summary("Varn calls her daughter.").with_story_word_range(None)
+        timed = event.with_timestamp("2.1")
+        moved = timed.with_place(PlaceCell("Orbit", "", False, None, "o1"))
+        recast = moved.with_characters([CharacterCell("Lia", "", False, None, "d1")])
+        retold = recast.with_summary("Varn calls her daughter.")
+        untold = retold.with_story_word_range(None)
 
-        self.assertEqual(retold, PlotNode("e1", None, "2.1", "orbit", "Varn calls her daughter."))
+        self.assertEqual(untold, PlotNode("e1", None, "2.1", "o1", ["d1"], "Varn calls her daughter."))
         self.assertEqual(event.summary, "Captain Varn watches the news with her daughter.")
+
+    def test_happen_in_no_place_once_given_none(self) -> None:
+        (plot,) = Document(self.THE_PLOT).plots()
+        event, _ = plot.nodes
+
+        nowhere = event.with_place(None)
+
+        self.assertEqual(nowhere.place_id, "")
+
+    @parameterized.expand(
+        [
+            ("the_place_of_its_id", "h1", PlaceCell("Varn's house", "", False, None, "h1")),
+            ("none_when_no_cell_has_its_id", "h9", None),
+            ("none_when_the_cell_of_its_id_is_not_a_place", "v1", None),
+        ]
+    )
+    def test_find_in_the_document(self, _, place_id: str, expected: PlaceCell | None) -> None:
+        document = Document.from_cells(
+            [
+                PlaceCell("Varn's house", "", False, None, "h1"),
+                CharacterCell("Captain Varn", "", False, None, "v1"),
+            ]
+        )
+        event = PlotNode("e1", None, "1.1", place_id, [], "")
+
+        place = event.place(document)
+
+        self.assertEqual(place, expected)
+
+    @parameterized.expand(
+        [
+            (
+                "the_characters_of_their_ids_in_the_events_order",
+                ["d1", "v1"],
+                [
+                    CharacterCell("Lia", "", False, None, "d1"),
+                    CharacterCell("Captain Varn", "", False, None, "v1"),
+                ],
+            ),
+            ("no_character_when_no_cell_has_its_id", ["v9"], []),
+            ("no_character_when_the_cell_of_its_id_is_not_a_character", ["h1"], []),
+            ("no_characters_when_the_event_references_none", [], []),
+        ]
+    )
+    def test_find_their_characters_in_the_document(
+        self, _, character_ids: list[str], expected: list[CharacterCell]
+    ) -> None:
+        document = Document.from_cells(
+            [
+                PlaceCell("Varn's house", "", False, None, "h1"),
+                CharacterCell("Captain Varn", "", False, None, "v1"),
+                CharacterCell("Lia", "", False, None, "d1"),
+            ]
+        )
+        event = PlotNode("e1", None, "1.1", "", character_ids, "")
+
+        characters = event.characters(document)
+
+        self.assertEqual(characters, expected)
 
     def test_one_is_put_in_place_of_the_event_of_its_id(self) -> None:
         (plot,) = Document(self.THE_PLOT).plots()
@@ -1527,7 +1598,7 @@ class PlotConcepts(unittest.TestCase):
     def test_are_kept_when_the_events_change(self) -> None:
         document = Document(self.THE_STORY)
         (plot,) = document.plots()
-        nodes = (PlotNode("e1", None, "1", "earth", "Varn calls her daughter."),)
+        nodes = (PlotNode("e1", None, "1", "h1", [], "Varn calls her daughter."),)
 
         with_the_nodes = plot.with_nodes(nodes)
 
@@ -1682,3 +1753,22 @@ class StoryText(unittest.TestCase):
         story_text = story_words.text(story_word_range)
 
         self.assertEqual(story_text, expected)
+
+
+class StandingOutsideTheStory(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("a_character", "character", True),
+            ("a_place", "place", True),
+            ("a_salient_concept", "salient-concept", True),
+            ("a_plot", "plot", True),
+            ("a_chapter", "chapter", False),
+            ("a_markdown_cell", "markdown", False),
+        ]
+    )
+    def test_is_said_of_the_kinds_that_tell_no_story(
+        self, _, kind: str, expected: bool
+    ) -> None:
+        stands_outside = stands_outside_the_story(kind)
+
+        self.assertEqual(stands_outside, expected)

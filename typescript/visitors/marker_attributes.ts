@@ -1,9 +1,11 @@
 import type { AboutCell } from "../cells/about_cell";
 import type { CellVisitor } from "../cells/cell_visitor";
 import type { ChapterCell } from "../cells/chapter_cell";
+import type { CharacterCell } from "../cells/character_cell";
 import type { DisclaimerCell } from "../cells/disclaimer_cell";
 import type { ImageCell } from "../cells/image_cell";
 import type { PartCell } from "../cells/part_cell";
+import type { PlaceCell } from "../cells/place_cell";
 import type { PlotCell, PlotEdge } from "../cells/plot_cell";
 import type { RecapCell } from "../cells/recap_cell";
 import type {
@@ -160,6 +162,14 @@ export class MarkerAttributes implements CellVisitor<Record<string, string>> {
             [PLOT_EDGES]: edges,
             [PLOT_CONCEPTS]: concepts,
         });
+    }
+
+    visitCharacter(cell: CharacterCell): Record<string, string> {
+        return withoutTheOnesNothingIsSaidAbout({ [TITLE]: cell.title });
+    }
+
+    visitPlace(cell: PlaceCell): Record<string, string> {
+        return withoutTheOnesNothingIsSaidAbout({ [TITLE]: cell.title });
     }
 
     visitUnknown(cell: UnknownCell): Record<string, string> {

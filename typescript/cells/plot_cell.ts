@@ -1,6 +1,8 @@
 import type { Document } from "../storydoc";
 import { Cell } from "./cell";
 import type { CellVisitor } from "./cell_visitor";
+import { CharacterCell } from "./character_cell";
+import { PlaceCell } from "./place_cell";
 import { SalientConceptCell } from "./salient_concept_cell";
 import { StoryWordRange } from "./story_word_range";
 import {
@@ -14,14 +16,15 @@ export const PLOT = "plot";
 // element to a line:
 //
 //     <ol title="How Captain Varn gave her life to buy her daughter time.">
-//     <li id="e1" timestamp="1.1" location="earth, Varn's house" words="412-468">Captain Varn watches the news with her daughter.</li>
-//     <li id="e2" timestamp="1.2" location="earth, command center">Varn is given command of the corvette.</li>
+//     <li id="e1" timestamp="1.1" place="h1" characters="v1, d1" words="412-468">Captain Varn watches the news with her daughter.</li>
+//     <li id="e2" timestamp="1.2" place="c1" characters="v1">Varn is given command of the corvette.</li>
 //     </ol>
 //
 // The attributes are written as a cell marker's are, and an event's summary is
 // the rest of its line, up to the closing tag. The timestamps are a clock the
 // whole manuscript shares, so a plot skips the moments nothing happens in it;
-// the location runs from the broadest place to the most specific; and `words`
+// `place` and `characters` are the ids of the place the event happens in and of
+// the characters in it; and `words`
 // are the story's words that tell the event, once there are any.
 const ATTRIBUTES = String.raw`((?:\s+[A-Za-z0-9][A-Za-z0-9_-]*\s*=\s*"(?:[^"\\]|\\.)*")*)\s*`;
 const EVENTS_OPENED = new RegExp(String.raw`^<ol${ATTRIBUTES}>$`);
@@ -32,24 +35,47 @@ const EVENT_WORDS = /^(\d+)-(\d+)$/;
 const OVERVIEW = "title";
 const EVENT_ID = "id";
 const TIMESTAMP = "timestamp";
-const LOCATION = "location";
+const PLACE = "place";
+const CHARACTERS = "characters";
 const WORDS = "words";
 
 export class PlotNode {
+    readonly characterIds: readonly string[];
+
     constructor(
         readonly nodeId: string,
         readonly storyWordRange: StoryWordRange | null,
         readonly timestamp: string = "",
-        readonly location: string = "",
+        readonly placeId: string = "",
+        characterIds: readonly string[] = [],
         readonly summary: string = "",
-    ) {}
+    ) {
+        this.characterIds = Object.freeze([...characterIds]);
+    }
+
+    place(document: Document): PlaceCell | undefined {
+        const referenced = document.cellWithId(this.placeId);
+        const place = referenced instanceof PlaceCell ? referenced : undefined;
+        return place;
+    }
+
+    characters(document: Document): CharacterCell[] {
+        const referenced = this.characterIds.map((characterId) =>
+            document.cellWithId(characterId),
+        );
+        const characters = referenced.filter(
+            (cell) => cell instanceof CharacterCell,
+        );
+        return characters;
+    }
 
     withStoryWordRange(storyWordRange: StoryWordRange | null): PlotNode {
         return new PlotNode(
             this.nodeId,
             storyWordRange,
             this.timestamp,
-            this.location,
+            this.placeId,
+            this.characterIds,
             this.summary,
         );
     }
@@ -59,17 +85,32 @@ export class PlotNode {
             this.nodeId,
             this.storyWordRange,
             timestamp,
-            this.location,
+            this.placeId,
+            this.characterIds,
             this.summary,
         );
     }
 
-    withLocation(location: string): PlotNode {
+    withPlace(place: PlaceCell | null): PlotNode {
+        const placeId = place?.uniqueId ?? "";
         return new PlotNode(
             this.nodeId,
             this.storyWordRange,
             this.timestamp,
-            location,
+            placeId,
+            this.characterIds,
+            this.summary,
+        );
+    }
+
+    withCharacters(characters: readonly CharacterCell[]): PlotNode {
+        const characterIds = characters.map((character) => character.uniqueId);
+        return new PlotNode(
+            this.nodeId,
+            this.storyWordRange,
+            this.timestamp,
+            this.placeId,
+            characterIds,
             this.summary,
         );
     }
@@ -79,7 +120,8 @@ export class PlotNode {
             this.nodeId,
             this.storyWordRange,
             this.timestamp,
-            this.location,
+            this.placeId,
+            this.characterIds,
             summary,
         );
     }
@@ -373,11 +415,18 @@ function plotEventRead(writtenAttributes: string, summary: string): PlotNode {
         words === null
             ? null
             : new StoryWordRange(Number(words[1]), Number(words[2]));
+    const writtenCharacterIds = (attributes[CHARACTERS] ?? "")
+        .split(",")
+        .map((characterId) => characterId.trim());
+    const characterIds = writtenCharacterIds.filter(
+        (characterId) => characterId !== "",
+    );
     return new PlotNode(
         nodeId,
         storyWordRange,
         attributes[TIMESTAMP] ?? "",
-        attributes[LOCATION] ?? "",
+        attributes[PLACE] ?? "",
+        characterIds,
         summary.trim(),
     );
 }
@@ -387,10 +436,12 @@ function writtenPlotEvent(node: PlotNode): string {
         node.storyWordRange === null
             ? ""
             : `${node.storyWordRange.firstWord}-${node.storyWordRange.lastWord}`;
+    const characterIds = node.characterIds.join(", ");
     const attributes = writtenAttributes([
         [EVENT_ID, node.nodeId],
         [TIMESTAMP, node.timestamp],
-        [LOCATION, node.location],
+        [PLACE, node.placeId],
+        [CHARACTERS, characterIds],
         [WORDS, words],
     ]);
     // An event is one line, so a summary is too.

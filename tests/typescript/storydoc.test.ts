@@ -17,10 +17,13 @@ import { StoryWordRange } from "../../typescript/cells/story_word_range";
 import { UnknownCell } from "../../typescript/cells/unknown_cell";
 import type { Cell } from "../../typescript/cells/cell";
 import { ChapterCell } from "../../typescript/cells/chapter_cell";
+import { CharacterCell } from "../../typescript/cells/character_cell";
+import { PlaceCell } from "../../typescript/cells/place_cell";
 import {
     moveTheSectionDown,
     moveTheSectionUp,
     removeTheSection,
+    standsOutsideTheStory,
 } from "../../typescript/story_sections";
 import {
     StoryTextSpan,
@@ -135,13 +138,13 @@ describe("a plot's events", () => {
         '<!-- cell: plot id="p2" title="Captain Varn and her daughter" edges="x1:e1>e2" -->',
         "",
         '<ol title="How Captain Varn gave her life to buy her daughter time.">',
-        '<li id="e1" timestamp="1.1" location="earth, Varn\'s house" words="412-468">Captain Varn watches the news with her daughter.</li>',
-        '<li id="e2" timestamp="1.4" location="earth, command center">Varn is given command of the corvette.</li>',
+        '<li id="e1" timestamp="1.1" place="h1" characters="v1, d1" words="412-468">Captain Varn watches the news with her daughter.</li>',
+        '<li id="e2" timestamp="1.4" place="c1" characters="v1">Varn is given command of the corvette.</li>',
         "</ol>",
         "",
     ].join("\n");
 
-    it("are read with their timestamp, location, words and summary", () => {
+    it("are read with their timestamp, place, characters, words and summary", () => {
         const [plot] = new Document(THE_PLOT).cells;
 
         expect(plot).toMatchObject({
@@ -152,14 +155,16 @@ describe("a plot's events", () => {
                     "e1",
                     new StoryWordRange(412, 468),
                     "1.1",
-                    "earth, Varn's house",
+                    "h1",
+                    ["v1", "d1"],
                     "Captain Varn watches the news with her daughter.",
                 ),
                 new PlotNode(
                     "e2",
                     null,
                     "1.4",
-                    "earth, command center",
+                    "c1",
+                    ["v1"],
                     "Varn is given command of the corvette.",
                 ),
             ],
@@ -171,8 +176,8 @@ describe("a plot's events", () => {
         const plot = new PlotCell(
             "The door",
             [
-                new PlotNode("e2", null, "1.2", "the hall", "She opens the door."),
-                new PlotNode("e1", new StoryWordRange(2, 3), "1.1", "the hall", "She finds the door."),
+                new PlotNode("e2", null, "1.2", "h2", [], "She opens the door."),
+                new PlotNode("e1", new StoryWordRange(2, 3), "1.1", "h2", ["v1"], "She finds the door."),
             ],
             [new PlotEdge("x1", "e1", "e2")],
             "She finds a door, and opens it.",
@@ -188,8 +193,8 @@ describe("a plot's events", () => {
                 '<!-- cell: plot id="p1" title="The door" edges="x1:e1>e2" -->',
                 "",
                 '<ol title="She finds a door, and opens it.">',
-                '<li id="e2" timestamp="1.2" location="the hall">She opens the door.</li>',
-                '<li id="e1" timestamp="1.1" location="the hall" words="2-3">She finds the door.</li>',
+                '<li id="e2" timestamp="1.2" place="h2">She opens the door.</li>',
+                '<li id="e1" timestamp="1.1" place="h2" characters="v1" words="2-3">She finds the door.</li>',
                 "</ol>",
                 "",
             ].join("\n"),
@@ -220,12 +225,12 @@ describe("a plot's events", () => {
         const [plot] = new Document(THE_PLOT).cells as PlotCell[];
 
         const rewritten = plot.withSource(
-            '<ol title="A mother.">\n<li id="e1" timestamp="2.1" location="orbit">Varn calls her daughter.</li>\n</ol>',
+            '<ol title="A mother.">\n<li id="e1" timestamp="2.1" place="o1">Varn calls her daughter.</li>\n</ol>',
         );
 
         expect(rewritten).toMatchObject({
             overview: "A mother.",
-            nodes: [new PlotNode("e1", null, "2.1", "orbit", "Varn calls her daughter.")],
+            nodes: [new PlotNode("e1", null, "2.1", "o1", [], "Varn calls her daughter.")],
             edges: plot.edges,
         });
     });
@@ -244,17 +249,68 @@ describe("a plot's events", () => {
         expect(() => plot.getNodeById("e3")).toThrow();
     });
 
-    it("take a new moment, place, summary and words, one at a time", () => {
+    it("take a new moment, place, characters, summary and words, one at a time", () => {
         const [plot] = new Document(THE_PLOT).cells as PlotCell[];
         const [event] = plot.nodes;
 
         const timed = event.withTimestamp("2.1");
-        const moved = timed.withLocation("orbit");
-        const retold = moved.withSummary("Varn calls her daughter.");
+        const moved = timed.withPlace(new PlaceCell("Orbit", "", false, null, "o1"));
+        const recast = moved.withCharacters([new CharacterCell("Lia", "", false, null, "d1")]);
+        const retold = recast.withSummary("Varn calls her daughter.");
         const untold = retold.withStoryWordRange(null);
 
-        expect(untold).toEqual(new PlotNode("e1", null, "2.1", "orbit", "Varn calls her daughter."));
+        expect(untold).toEqual(new PlotNode("e1", null, "2.1", "o1", ["d1"], "Varn calls her daughter."));
         expect(event.summary).toBe("Captain Varn watches the news with her daughter.");
+    });
+
+    it("happen in no place once given none", () => {
+        const [plot] = new Document(THE_PLOT).cells as PlotCell[];
+        const [event] = plot.nodes;
+
+        const nowhere = event.withPlace(null);
+
+        expect(nowhere.placeId).toBe("");
+    });
+
+    it.each([
+        ["the place of its id", "h1", new PlaceCell("Varn's house", "", false, null, "h1")],
+        ["none when no cell has its id", "h9", undefined],
+        ["none when the cell of its id is not a place", "v1", undefined],
+    ] as const)("find in the document %s", (_, placeId, expected) => {
+        const document = Document.fromCells([
+            new PlaceCell("Varn's house", "", false, null, "h1"),
+            new CharacterCell("Captain Varn", "", false, null, "v1"),
+        ]);
+        const event = new PlotNode("e1", null, "1.1", placeId, [], "");
+
+        const place = event.place(document);
+
+        expect(place).toEqual(expected);
+    });
+
+    it.each([
+        [
+            "the characters of their ids, in the event's order",
+            ["d1", "v1"],
+            [
+                new CharacterCell("Lia", "", false, null, "d1"),
+                new CharacterCell("Captain Varn", "", false, null, "v1"),
+            ],
+        ],
+        ["no character when no cell has its id", ["v9"], []],
+        ["no character when the cell of its id is not a character", ["h1"], []],
+        ["no characters when the event references none", [], []],
+    ] as const)("find in the document %s", (_, characterIds, expected) => {
+        const document = Document.fromCells([
+            new PlaceCell("Varn's house", "", false, null, "h1"),
+            new CharacterCell("Captain Varn", "", false, null, "v1"),
+            new CharacterCell("Lia", "", false, null, "d1"),
+        ]);
+        const event = new PlotNode("e1", null, "1.1", "", characterIds, "");
+
+        const characters = event.characters(document);
+
+        expect(characters).toEqual(expected);
     });
 
     it("one is put in place of the event of its id", () => {
@@ -1155,7 +1211,7 @@ describe("a plot's concepts", () => {
     it("are kept when the events change", () => {
         const document = new Document(THE_STORY);
         const [plot] = document.plots();
-        const nodes = [new PlotNode("e1", null, "1", "earth", "Varn calls her daughter.")];
+        const nodes = [new PlotNode("e1", null, "1", "h1", [], "Varn calls her daughter.")];
 
         const withTheNodes = plot.withNodes(nodes);
 
@@ -1354,5 +1410,20 @@ describe("the story words a selection covers", () => {
         const range = storyWords.rangeBetween("c1", 0, 3);
 
         expect(range).toBeNull();
+    });
+});
+
+describe("standing outside the story", () => {
+    it.each([
+        ["a character", "character", true],
+        ["a place", "place", true],
+        ["a salient concept", "salient-concept", true],
+        ["a plot", "plot", true],
+        ["a chapter", "chapter", false],
+        ["a markdown cell", "markdown", false],
+    ] as const)("is said of the kinds that tell no story: %s", (_, kind, expected) => {
+        const standsOutside = standsOutsideTheStory(kind);
+
+        expect(standsOutside).toBe(expected);
     });
 });

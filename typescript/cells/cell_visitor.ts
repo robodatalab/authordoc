@@ -1,12 +1,14 @@
 import type { AboutCell } from "./about_cell";
 import type { BlurbCell } from "./blurb_cell";
 import type { ChapterCell } from "./chapter_cell";
+import type { CharacterCell } from "./character_cell";
 import type { DisclaimerCell } from "./disclaimer_cell";
 import type { DividerCell } from "./divider_cell";
 import type { ImageCell } from "./image_cell";
 import type { MarkdownCell } from "./markdown_cell";
 import type { NoteCell } from "./note_cell";
 import type { PartCell } from "./part_cell";
+import type { PlaceCell } from "./place_cell";
 import type { PlotCell } from "./plot_cell";
 import type { RecapCell } from "./recap_cell";
 import type { SalientConceptCell } from "./salient_concept_cell";
@@ -29,5 +31,7 @@ export interface CellVisitor<Result> {
     visitRecap(cell: RecapCell): Result;
     visitSalientConcept(cell: SalientConceptCell): Result;
     visitPlot(cell: PlotCell): Result;
+    visitCharacter(cell: CharacterCell): Result;
+    visitPlace(cell: PlaceCell): Result;
     visitUnknown(cell: UnknownCell): Result;
 }

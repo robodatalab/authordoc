@@ -7,12 +7,14 @@ from authordoc.cells.cell import Cell
 from authordoc.cells.about_cell import ABOUT, AboutCell
 from authordoc.cells.blurb_cell import BLURB, BlurbCell
 from authordoc.cells.chapter_cell import CHAPTER, ChapterCell
+from authordoc.cells.character_cell import CHARACTER, CharacterCell
 from authordoc.cells.disclaimer_cell import DISCLAIMER, DisclaimerCell
 from authordoc.cells.divider_cell import DIVIDER, DividerCell
 from authordoc.cells.image_cell import IMAGE, ImageCell
 from authordoc.cells.markdown_cell import MARKDOWN, MarkdownCell
 from authordoc.cells.note_cell import NOTE, NoteCell
 from authordoc.cells.part_cell import PART, PartCell
+from authordoc.cells.place_cell import PLACE, PlaceCell
 from authordoc.cells.plot_cell import PLOT, PlotCell, PlotEdge, PlotNode
 from authordoc.cells.recap_cell import RECAP, RecapCell
 from authordoc.cells.salient_concept_cell import (
@@ -244,6 +246,10 @@ def _cell_from_marker(
         return PlotCell.from_body(
             attrs.get(TITLE, ""), edges, source, folded, at, unique_id, concepts
         )
+    if kind == CHARACTER:
+        return CharacterCell(attrs.get(TITLE, ""), source, folded, at, unique_id)
+    if kind == PLACE:
+        return PlaceCell(attrs.get(TITLE, ""), source, folded, at, unique_id)
     return UnknownCell(kind, attrs, source, folded, at, unique_id)
 
 

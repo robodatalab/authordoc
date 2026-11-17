@@ -4,12 +4,14 @@ from authordoc.cells.about_cell import AboutCell
 from authordoc.cells.blurb_cell import BlurbCell
 from authordoc.cells.cell_visitor import CellVisitor
 from authordoc.cells.chapter_cell import ChapterCell
+from authordoc.cells.character_cell import CharacterCell
 from authordoc.cells.disclaimer_cell import DisclaimerCell
 from authordoc.cells.divider_cell import DividerCell
 from authordoc.cells.image_cell import ImageCell
 from authordoc.cells.markdown_cell import MarkdownCell
 from authordoc.cells.note_cell import NoteCell
 from authordoc.cells.part_cell import PartCell
+from authordoc.cells.place_cell import PlaceCell
 from authordoc.cells.plot_cell import PlotCell, PlotEdge
 from authordoc.cells.recap_cell import RecapCell
 from authordoc.cells.salient_concept_cell import (
@@ -151,6 +153,12 @@ class MarkerAttributes(CellVisitor[dict[str, str]]):
         return _without_the_ones_nothing_is_said_about(
             {TITLE: cell.title, PLOT_EDGES: edges, PLOT_CONCEPTS: concepts}
         )
+
+    def visit_character(self, cell: CharacterCell) -> dict[str, str]:
+        return _without_the_ones_nothing_is_said_about({TITLE: cell.title})
+
+    def visit_place(self, cell: PlaceCell) -> dict[str, str]:
+        return _without_the_ones_nothing_is_said_about({TITLE: cell.title})
 
     def visit_unknown(self, cell: UnknownCell) -> dict[str, str]:
         return dict(cell.attrs)
