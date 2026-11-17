@@ -3,8 +3,10 @@ import { ABOUT } from "./cells/about_cell";
 import { BLURB } from "./cells/blurb_cell";
 import type { Cell } from "./cells/cell";
 import { CHAPTER } from "./cells/chapter_cell";
+import { CHARACTER } from "./cells/character_cell";
 import { DISCLAIMER } from "./cells/disclaimer_cell";
 import { PART } from "./cells/part_cell";
+import { PLACE } from "./cells/place_cell";
 import { PLOT } from "./cells/plot_cell";
 import { RECAP } from "./cells/recap_cell";
 import { SALIENT_CONCEPT } from "./cells/salient_concept_cell";
@@ -36,6 +38,8 @@ const KINDS_THAT_STAND_OUTSIDE_THE_STORY = new Set([
     RECAP,
     SALIENT_CONCEPT,
     PLOT,
+    CHARACTER,
+    PLACE,
 ]);
 
 export function standsOutsideTheStory(kind: string): boolean {

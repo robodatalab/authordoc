@@ -2,12 +2,14 @@ import type { AboutCell } from "../cells/about_cell";
 import type { BlurbCell } from "../cells/blurb_cell";
 import type { CellVisitor } from "../cells/cell_visitor";
 import type { ChapterCell } from "../cells/chapter_cell";
+import type { CharacterCell } from "../cells/character_cell";
 import type { DisclaimerCell } from "../cells/disclaimer_cell";
 import type { DividerCell } from "../cells/divider_cell";
 import type { ImageCell } from "../cells/image_cell";
 import type { MarkdownCell } from "../cells/markdown_cell";
 import type { NoteCell } from "../cells/note_cell";
 import type { PartCell } from "../cells/part_cell";
+import type { PlaceCell } from "../cells/place_cell";
 import type { PlotCell } from "../cells/plot_cell";
 import type { RecapCell } from "../cells/recap_cell";
 import type { SalientConceptCell } from "../cells/salient_concept_cell";
@@ -98,6 +100,14 @@ export class AnnotatedPassagesOf implements CellVisitor<AnnotatedPassages | null
     }
 
     visitRecap(_cell: RecapCell): null {
+        return null;
+    }
+
+    visitCharacter(_cell: CharacterCell): null {
+        return null;
+    }
+
+    visitPlace(_cell: PlaceCell): null {
         return null;
     }
 

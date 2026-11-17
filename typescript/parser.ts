@@ -1,7 +1,9 @@
 import type { Cell } from "./cells/cell";
 import { MARKDOWN, MarkdownCell } from "./cells/markdown_cell";
 import { CHAPTER, ChapterCell } from "./cells/chapter_cell";
+import { CHARACTER, CharacterCell } from "./cells/character_cell";
 import { PART, PartCell } from "./cells/part_cell";
+import { PLACE, PlaceCell } from "./cells/place_cell";
 import { DIVIDER, DividerCell } from "./cells/divider_cell";
 import { TITLE_PAGE, TitlePageCell } from "./cells/title_page_cell";
 import { IMAGE, ImageCell } from "./cells/image_cell";
@@ -312,6 +314,22 @@ function cellFromMarker(
                 concepts,
             );
         }
+        case CHARACTER:
+            return new CharacterCell(
+                attrs[TITLE] ?? "",
+                source,
+                folded,
+                at,
+                uniqueId,
+            );
+        case PLACE:
+            return new PlaceCell(
+                attrs[TITLE] ?? "",
+                source,
+                folded,
+                at,
+                uniqueId,
+            );
         default:
             return new UnknownCell(kind, attrs, source, folded, at, uniqueId);
     }

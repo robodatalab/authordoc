@@ -7,8 +7,10 @@ from authordoc.cells.about_cell import ABOUT
 from authordoc.cells.blurb_cell import BLURB
 from authordoc.cells.cell import Cell
 from authordoc.cells.chapter_cell import CHAPTER
+from authordoc.cells.character_cell import CHARACTER
 from authordoc.cells.disclaimer_cell import DISCLAIMER
 from authordoc.cells.part_cell import PART
+from authordoc.cells.place_cell import PLACE
 from authordoc.cells.plot_cell import PLOT
 from authordoc.cells.recap_cell import RECAP
 from authordoc.cells.salient_concept_cell import SALIENT_CONCEPT
@@ -39,6 +41,8 @@ _KINDS_THAT_STAND_OUTSIDE_THE_STORY = frozenset(
         RECAP,
         SALIENT_CONCEPT,
         PLOT,
+        CHARACTER,
+        PLACE,
     }
 )
 

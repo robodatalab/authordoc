@@ -21,6 +21,7 @@ import {
     moveTheSectionDown,
     moveTheSectionUp,
     removeTheSection,
+    standsOutsideTheStory,
 } from "../../typescript/story_sections";
 import {
     StoryTextSpan,
@@ -1354,5 +1355,20 @@ describe("the story words a selection covers", () => {
         const range = storyWords.rangeBetween("c1", 0, 3);
 
         expect(range).toBeNull();
+    });
+});
+
+describe("standing outside the story", () => {
+    it.each([
+        ["a character", "character", true],
+        ["a place", "place", true],
+        ["a salient concept", "salient-concept", true],
+        ["a plot", "plot", true],
+        ["a chapter", "chapter", false],
+        ["a markdown cell", "markdown", false],
+    ] as const)("is said of the kinds that tell no story: %s", (_, kind, expected) => {
+        const standsOutside = standsOutsideTheStory(kind);
+
+        expect(standsOutside).toBe(expected);
     });
 });

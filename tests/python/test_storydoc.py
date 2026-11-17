@@ -15,7 +15,12 @@ from authordoc.iterators.prose_cells_iterator import ProseCellsIterator
 from authordoc.iterators.story_lines_iterator import StoryLinesIterator
 from authordoc.iterators.story_words_iterator import StoryWordsIterator
 from authordoc.storydoc import Document
-from authordoc.story_sections import move_the_section_down, move_the_section_up, remove_the_section
+from authordoc.story_sections import (
+    move_the_section_down,
+    move_the_section_up,
+    remove_the_section,
+    stands_outside_the_story,
+)
 from authordoc.cells.blurb_cell import BlurbCell
 from authordoc.cells.cell import Cell
 from authordoc.cells.chapter_cell import ChapterCell
@@ -1682,3 +1687,22 @@ class StoryText(unittest.TestCase):
         story_text = story_words.text(story_word_range)
 
         self.assertEqual(story_text, expected)
+
+
+class StandingOutsideTheStory(unittest.TestCase):
+    @parameterized.expand(
+        [
+            ("a_character", "character", True),
+            ("a_place", "place", True),
+            ("a_salient_concept", "salient-concept", True),
+            ("a_plot", "plot", True),
+            ("a_chapter", "chapter", False),
+            ("a_markdown_cell", "markdown", False),
+        ]
+    )
+    def test_is_said_of_the_kinds_that_tell_no_story(
+        self, _, kind: str, expected: bool
+    ) -> None:
+        stands_outside = stands_outside_the_story(kind)
+
+        self.assertEqual(stands_outside, expected)

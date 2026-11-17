@@ -7,12 +7,14 @@ if TYPE_CHECKING:
     from authordoc.cells.about_cell import AboutCell
     from authordoc.cells.blurb_cell import BlurbCell
     from authordoc.cells.chapter_cell import ChapterCell
+    from authordoc.cells.character_cell import CharacterCell
     from authordoc.cells.disclaimer_cell import DisclaimerCell
     from authordoc.cells.divider_cell import DividerCell
     from authordoc.cells.image_cell import ImageCell
     from authordoc.cells.markdown_cell import MarkdownCell
     from authordoc.cells.note_cell import NoteCell
     from authordoc.cells.part_cell import PartCell
+    from authordoc.cells.place_cell import PlaceCell
     from authordoc.cells.plot_cell import PlotCell
     from authordoc.cells.recap_cell import RecapCell
     from authordoc.cells.salient_concept_cell import SalientConceptCell
@@ -65,6 +67,12 @@ class CellVisitor(ABC, Generic[_Result]):
 
     @abstractmethod
     def visit_plot(self, cell: PlotCell) -> _Result: ...
+
+    @abstractmethod
+    def visit_character(self, cell: CharacterCell) -> _Result: ...
+
+    @abstractmethod
+    def visit_place(self, cell: PlaceCell) -> _Result: ...
 
     @abstractmethod
     def visit_unknown(self, cell: UnknownCell) -> _Result: ...

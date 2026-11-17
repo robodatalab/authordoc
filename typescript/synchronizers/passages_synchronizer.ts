@@ -6,12 +6,14 @@ import type { BlurbCell } from "../cells/blurb_cell";
 import type { Cell } from "../cells/cell";
 import type { CellVisitor } from "../cells/cell_visitor";
 import type { ChapterCell } from "../cells/chapter_cell";
+import type { CharacterCell } from "../cells/character_cell";
 import type { DisclaimerCell } from "../cells/disclaimer_cell";
 import type { DividerCell } from "../cells/divider_cell";
 import type { ImageCell } from "../cells/image_cell";
 import type { MarkdownCell } from "../cells/markdown_cell";
 import type { NoteCell } from "../cells/note_cell";
 import type { PartCell } from "../cells/part_cell";
+import type { PlaceCell } from "../cells/place_cell";
 import { PlotCell } from "../cells/plot_cell";
 import type { RecapCell } from "../cells/recap_cell";
 import {
@@ -287,6 +289,14 @@ class PassagesKeptInStep implements CellVisitor<Cell> {
     }
 
     visitRecap(cell: RecapCell): RecapCell {
+        return cell;
+    }
+
+    visitCharacter(cell: CharacterCell): CharacterCell {
+        return cell;
+    }
+
+    visitPlace(cell: PlaceCell): PlaceCell {
         return cell;
     }
 
