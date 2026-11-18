@@ -1538,3 +1538,67 @@ describe("a character's concepts", () => {
         );
     });
 });
+
+describe("a place's parent", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: character id="v1" title="Varn" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["the place of its id", "en", "en"],
+        ["none when no cell has its id", "x9", undefined],
+        ["none when the cell of its id is not a place", "v1", undefined],
+        ["none when it names none", "", undefined],
+    ])("is %s", (_, parentId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("The lane", "", false, null, "l1", parentId);
+
+        const parent = place.parent(document);
+
+        expect(parent?.uniqueId).toBe(expected);
+    });
+
+    it.each([
+        ["the place given", new PlaceCell("England", "", false, null, "en"), "en"],
+        ["none, given none", null, ""],
+    ])("is %s when replaced", (_, parent, expected) => {
+        const place = new PlaceCell("Hollowmere village", "", false, null, "hv", "x9");
+
+        const placed = place.withParent(parent);
+
+        expect(placed._parent).toBe(expected);
+    });
+
+    it.each([
+        ["its description is rewritten", (place: PlaceCell) => place.withSource("A village of weavers.")],
+        ["it is folded", (place: PlaceCell) => place.withFolded(true)],
+    ])("is kept when %s", (_, change) => {
+        const place = new PlaceCell("Hollowmere village", "", false, null, "hv", "en");
+
+        const changed = change(place);
+
+        expect(changed._parent).toBe("en");
+    });
+
+    it("is written into the place's marker", () => {
+        const england = new PlaceCell("England", "", false, null, "en");
+        const village = new PlaceCell("Hollowmere village", "A village of weavers.", false, null, "hv");
+
+        const placed = village.withParent(england);
+
+        const written = Document.fromCells([placed]).text;
+        expect(written).toBe(
+            [
+                '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+                "",
+                "A village of weavers.",
+                "",
+            ].join("\n"),
+        );
+    });
+});

@@ -36,6 +36,7 @@ import {
     LANGUAGE,
     NO,
     CHARACTER_CONCEPTS,
+    PLACE_PARENT,
     PLOT_CHARACTERS,
     PLOT_CONCEPTS,
     PLOT_EDGES,
@@ -337,6 +338,7 @@ function cellFromMarker(
                 folded,
                 at,
                 uniqueId,
+                attrs[PLACE_PARENT] ?? "",
             );
         default:
             return new UnknownCell(kind, attrs, source, folded, at, uniqueId);

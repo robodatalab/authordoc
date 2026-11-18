@@ -56,6 +56,8 @@ PLOT_CHARACTERS = "characters"
 
 CHARACTER_CONCEPTS = "concepts"
 
+PLACE_PARENT = "parent"
+
 
 def _without_the_ones_nothing_is_said_about(
     attributes: dict[str, str],
@@ -170,7 +172,9 @@ class MarkerAttributes(CellVisitor[dict[str, str]]):
         )
 
     def visit_place(self, cell: PlaceCell) -> dict[str, str]:
-        return _without_the_ones_nothing_is_said_about({TITLE: cell.title})
+        return _without_the_ones_nothing_is_said_about(
+            {TITLE: cell.title, PLACE_PARENT: cell._parent}
+        )
 
     def visit_unknown(self, cell: UnknownCell) -> dict[str, str]:
         return dict(cell.attrs)

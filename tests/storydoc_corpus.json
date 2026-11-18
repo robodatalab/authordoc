@@ -333,6 +333,23 @@
                 }
             ],
             "dumped": "<!-- cell: plot id=\"p5\" title=\"Captain Varn and her daughter\" concepts=\"k1\" characters=\"v1, d1\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\">Captain Varn watches the news with her daughter.</li>\n</ol>\n"
+        },
+        {
+            "name": "a place names the place it lies in",
+            "text": "<!-- cell: place id=\"en\" title=\"England\" -->\n\n<!-- cell: place id=\"hv\" title=\"Hollowmere village\" parent=\"en\" -->\n\nA village of weavers.\n",
+            "cells": [
+                {
+                    "kind": "place",
+                    "source": "",
+                    "id": "en"
+                },
+                {
+                    "kind": "place",
+                    "source": "A village of weavers.",
+                    "id": "hv"
+                }
+            ],
+            "dumped": "<!-- cell: place id=\"en\" title=\"England\" -->\n\n<!-- cell: place id=\"hv\" title=\"Hollowmere village\" parent=\"en\" -->\n\nA village of weavers.\n"
         }
     ]
 }
