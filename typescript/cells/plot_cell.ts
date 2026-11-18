@@ -141,6 +141,7 @@ export class PlotCell extends Cell {
     readonly edges: readonly PlotEdge[];
     // The ids of the salient concepts the plot references.
     readonly _concepts: readonly string[];
+    readonly _characters: readonly string[];
 
     constructor(
         readonly title: string = "",
@@ -151,6 +152,7 @@ export class PlotCell extends Cell {
         at: readonly [number, number] | null = null,
         uniqueId: string = crypto.randomUUID(),
         concepts: readonly string[] = [],
+        characters: readonly string[] = [],
     ) {
         super(writtenPlotBody(overview, nodes), folded, at, uniqueId);
         // Kept as frozen copies, whatever arrays they come as, so that no one
@@ -158,6 +160,7 @@ export class PlotCell extends Cell {
         this.nodes = Object.freeze([...nodes]);
         this.edges = Object.freeze([...edges]);
         this._concepts = Object.freeze([...concepts]);
+        this._characters = Object.freeze([...characters]);
     }
 
     /** The plot whose body is `body`: its overview and events read from it. */
@@ -169,6 +172,7 @@ export class PlotCell extends Cell {
         at: readonly [number, number] | null,
         uniqueId: string,
         concepts: readonly string[],
+        characters: readonly string[],
     ): PlotCell {
         const [overview, nodes] = plotBodyRead(body);
         return new PlotCell(
@@ -180,6 +184,7 @@ export class PlotCell extends Cell {
             at,
             uniqueId,
             concepts,
+            characters,
         );
     }
 
@@ -226,6 +231,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
     }
 
@@ -239,6 +245,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
     }
 
@@ -252,6 +259,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
     }
 
@@ -265,6 +273,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
         return retitled;
     }
@@ -279,6 +288,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
         return withTheNodes;
     }
@@ -293,6 +303,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
         return withTheEdges;
     }
@@ -309,6 +320,33 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             conceptIds,
+            this._characters,
+        );
+        return referencing;
+    }
+
+    characters(document: Document): CharacterCell[] {
+        const referenced = this._characters.map((characterId) =>
+            document.cellWithId(characterId),
+        );
+        const characters = referenced.filter(
+            (cell) => cell instanceof CharacterCell,
+        );
+        return characters;
+    }
+
+    withCharacters(characters: readonly CharacterCell[]): PlotCell {
+        const characterIds = characters.map((character) => character.uniqueId);
+        const referencing = new PlotCell(
+            this.title,
+            this.nodes,
+            this.edges,
+            this.overview,
+            this.folded,
+            this.at,
+            this.uniqueId,
+            this._concepts,
+            characterIds,
         );
         return referencing;
     }
@@ -327,6 +365,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
     }
 
@@ -353,6 +392,7 @@ export class PlotCell extends Cell {
             this.at,
             this.uniqueId,
             this._concepts,
+            this._characters,
         );
     }
 

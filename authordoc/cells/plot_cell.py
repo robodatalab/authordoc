@@ -113,6 +113,7 @@ class PlotCell(Cell):
     _unique_id: str = field(default_factory=lambda: str(uuid4()))
     # The ids of the salient concepts the plot references.
     _concepts: Sequence[str] = ()
+    _characters: Sequence[str] = ()
 
     def __post_init__(self) -> None:
         # Kept as tuples, whatever sequences they come as, so that no one changes
@@ -120,6 +121,7 @@ class PlotCell(Cell):
         object.__setattr__(self, "nodes", tuple(self.nodes))
         object.__setattr__(self, "edges", tuple(self.edges))
         object.__setattr__(self, "_concepts", tuple(self._concepts))
+        object.__setattr__(self, "_characters", tuple(self._characters))
 
     @property
     def source(self) -> str:  # type: ignore[override]
@@ -135,10 +137,11 @@ class PlotCell(Cell):
         at: tuple[int, int] | None,
         unique_id: str,
         concepts: list[str],
+        characters: list[str],
     ) -> PlotCell:
         """The plot whose body is `body`: its overview and events read from it."""
         overview, nodes = plot_body_read(body)
-        return cls(title, nodes, edges, overview, folded, at, unique_id, concepts)
+        return cls(title, nodes, edges, overview, folded, at, unique_id, concepts, characters)
 
     def get_node_by_id(self, node_id: str) -> PlotNode:
         for node in self.nodes:
@@ -196,6 +199,16 @@ class PlotCell(Cell):
         concept_ids = [concept.unique_id for concept in concepts]
         referencing = replace(self, _concepts=concept_ids)
         return referencing
+
+    def characters(self, document: Document) -> list[CharacterCell]:
+        referenced = [document.cell_with_id(character_id) for character_id in self._characters]
+        characters = [cell for cell in referenced if isinstance(cell, CharacterCell)]
+        return characters
+
+    def with_characters(self, characters: Sequence[CharacterCell]) -> PlotCell:
+        character_ids = [character.unique_id for character in characters]
+        following = replace(self, _characters=character_ids)
+        return following
 
     def accept(self, visitor: CellVisitor[_Result]) -> _Result:
         return visitor.visit_plot(self)

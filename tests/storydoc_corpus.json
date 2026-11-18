@@ -309,6 +309,30 @@
                 }
             ],
             "dumped": "<!-- cell: plot id=\"p4\" -->\n\n<ol title=\"She leaves.\">\n<li id=\"e1\" timestamp=\"2.1\" characters=\"v1\">She boards the shuttle.</li>\n</ol>\n"
+        },
+        {
+            "name": "a character names the concepts it supports",
+            "text": "<!-- cell: character id=\"v1\" title=\"Captain Varn\" concepts=\"k1, k2\" -->\n\nShe left the fleet after her husband died.\n",
+            "cells": [
+                {
+                    "kind": "character",
+                    "source": "She left the fleet after her husband died.",
+                    "id": "v1"
+                }
+            ],
+            "dumped": "<!-- cell: character id=\"v1\" title=\"Captain Varn\" concepts=\"k1, k2\" -->\n\nShe left the fleet after her husband died.\n"
+        },
+        {
+            "name": "a plot names the characters it follows",
+            "text": "<!-- cell: plot id=\"p5\" title=\"Captain Varn and her daughter\" concepts=\"k1\" characters=\"v1, d1\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\">Captain Varn watches the news with her daughter.</li>\n</ol>\n",
+            "cells": [
+                {
+                    "kind": "plot",
+                    "source": "<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\">Captain Varn watches the news with her daughter.</li>\n</ol>",
+                    "id": "p5"
+                }
+            ],
+            "dumped": "<!-- cell: plot id=\"p5\" title=\"Captain Varn and her daughter\" concepts=\"k1\" characters=\"v1, d1\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\">Captain Varn watches the news with her daughter.</li>\n</ol>\n"
         }
     ]
 }

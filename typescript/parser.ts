@@ -35,6 +35,8 @@ import {
     KDP,
     LANGUAGE,
     NO,
+    CHARACTER_CONCEPTS,
+    PLOT_CHARACTERS,
     PLOT_CONCEPTS,
     PLOT_EDGES,
     PLOT_NODES,
@@ -178,7 +180,7 @@ function plotEdgesIn(written: string): PlotEdge[] {
     return edges;
 }
 
-function plotConceptsIn(written: string): string[] {
+function cellIdsIn(written: string): string[] {
     const parts = written
         .split(",")
         .map((writtenConcept) => writtenConcept.trim());
@@ -288,7 +290,8 @@ function cellFromMarker(
         }
         case PLOT: {
             const edges = plotEdgesIn(attrs[PLOT_EDGES] ?? "");
-            const concepts = plotConceptsIn(attrs[PLOT_CONCEPTS] ?? "");
+            const concepts = cellIdsIn(attrs[PLOT_CONCEPTS] ?? "");
+            const characters = cellIdsIn(attrs[PLOT_CHARACTERS] ?? "");
             // A plot written before plots had events keeps its nodes in its
             // marker and its overview in its body; it is written back with events.
             if (attrs[PLOT_NODES] !== undefined) {
@@ -302,6 +305,7 @@ function cellFromMarker(
                     at,
                     uniqueId,
                     concepts,
+                    characters,
                 );
             }
             return PlotCell.fromBody(
@@ -312,16 +316,20 @@ function cellFromMarker(
                 at,
                 uniqueId,
                 concepts,
+                characters,
             );
         }
-        case CHARACTER:
+        case CHARACTER: {
+            const concepts = cellIdsIn(attrs[CHARACTER_CONCEPTS] ?? "");
             return new CharacterCell(
                 attrs[TITLE] ?? "",
                 source,
                 folded,
                 at,
                 uniqueId,
+                concepts,
             );
+        }
         case PLACE:
             return new PlaceCell(
                 attrs[TITLE] ?? "",

@@ -45,6 +45,9 @@ export const SALIENT_CONCEPT_REFERENCES = "words";
 export const PLOT_NODES = "nodes";
 export const PLOT_EDGES = "edges";
 export const PLOT_CONCEPTS = "concepts";
+export const PLOT_CHARACTERS = "characters";
+
+export const CHARACTER_CONCEPTS = "concepts";
 
 function withoutTheOnesNothingIsSaidAbout(
     attributes: Record<string, string>,
@@ -70,8 +73,8 @@ function writtenPlotEdges(edges: readonly PlotEdge[]): string {
         .join(", ");
 }
 
-function writtenPlotConcepts(concepts: readonly string[]): string {
-    const written = concepts.join(", ");
+function writtenCellIds(cellIds: readonly string[]): string {
+    const written = cellIds.join(", ");
     return written;
 }
 
@@ -152,20 +155,26 @@ export class MarkerAttributes implements CellVisitor<Record<string, string>> {
         });
     }
 
-    // A plot's events are its body; its marker says only its title, its edges
-    // and the concepts it references.
+    // A plot's events are its body; its marker says only its title, its edges,
+    // the concepts it references and the characters it follows.
     visitPlot(cell: PlotCell): Record<string, string> {
         const edges = writtenPlotEdges(cell.edges);
-        const concepts = writtenPlotConcepts(cell._concepts);
+        const concepts = writtenCellIds(cell._concepts);
+        const characters = writtenCellIds(cell._characters);
         return withoutTheOnesNothingIsSaidAbout({
             [TITLE]: cell.title,
             [PLOT_EDGES]: edges,
             [PLOT_CONCEPTS]: concepts,
+            [PLOT_CHARACTERS]: characters,
         });
     }
 
     visitCharacter(cell: CharacterCell): Record<string, string> {
-        return withoutTheOnesNothingIsSaidAbout({ [TITLE]: cell.title });
+        const concepts = writtenCellIds(cell._concepts);
+        return withoutTheOnesNothingIsSaidAbout({
+            [TITLE]: cell.title,
+            [CHARACTER_CONCEPTS]: concepts,
+        });
     }
 
     visitPlace(cell: PlaceCell): Record<string, string> {

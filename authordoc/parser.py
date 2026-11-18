@@ -39,6 +39,8 @@ from authordoc.visitors.marker_attributes import (
     KDP,
     LANGUAGE,
     NO,
+    CHARACTER_CONCEPTS,
+    PLOT_CHARACTERS,
     PLOT_CONCEPTS,
     PLOT_EDGES,
     PLOT_NODES,
@@ -151,7 +153,7 @@ def _plot_edges_in(written: str) -> list[PlotEdge]:
     return edges
 
 
-def _plot_concepts_in(written: str) -> list[str]:
+def _cell_ids_in(written: str) -> list[str]:
     parts = [written_concept.strip() for written_concept in written.split(",")]
     concepts = [concept_id for concept_id in parts if concept_id]
     return concepts
@@ -228,7 +230,8 @@ def _cell_from_marker(
         )
     if kind == PLOT:
         edges = _plot_edges_in(attrs.get(PLOT_EDGES, ""))
-        concepts = _plot_concepts_in(attrs.get(PLOT_CONCEPTS, ""))
+        concepts = _cell_ids_in(attrs.get(PLOT_CONCEPTS, ""))
+        characters = _cell_ids_in(attrs.get(PLOT_CHARACTERS, ""))
         # A plot written before plots had events keeps its nodes in its marker
         # and its overview in its body; it is written back with events.
         if PLOT_NODES in attrs:
@@ -242,12 +245,14 @@ def _cell_from_marker(
                 at,
                 unique_id,
                 concepts,
+                characters,
             )
         return PlotCell.from_body(
-            attrs.get(TITLE, ""), edges, source, folded, at, unique_id, concepts
+            attrs.get(TITLE, ""), edges, source, folded, at, unique_id, concepts, characters
         )
     if kind == CHARACTER:
-        return CharacterCell(attrs.get(TITLE, ""), source, folded, at, unique_id)
+        concepts = _cell_ids_in(attrs.get(CHARACTER_CONCEPTS, ""))
+        return CharacterCell(attrs.get(TITLE, ""), source, folded, at, unique_id, concepts)
     if kind == PLACE:
         return PlaceCell(attrs.get(TITLE, ""), source, folded, at, unique_id)
     return UnknownCell(kind, attrs, source, folded, at, unique_id)
