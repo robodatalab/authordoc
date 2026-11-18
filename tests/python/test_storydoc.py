@@ -1772,3 +1772,107 @@ class StandingOutsideTheStory(unittest.TestCase):
         stands_outside = stands_outside_the_story(kind)
 
         self.assertEqual(stands_outside, expected)
+
+
+class PlotCharacters(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: character id="v1" title="Captain Varn" -->\n'
+        "\n"
+        '<!-- cell: character id="d1" title="Lia" -->\n'
+        "\n"
+        '<!-- cell: place id="h1" title="Varn\'s house" -->\n'
+        "\n"
+        '<!-- cell: plot id="p1" title="Captain Varn and her daughter" characters="d1, h1, x9, v1" -->\n'
+        "\n"
+        '<ol title="How Captain Varn gave her life to buy her daughter time.">\n'
+        "</ol>\n"
+    )
+
+    def test_are_the_characters_the_plot_follows_in_its_order_leaving_out_what_is_no_character(self) -> None:
+        document = Document(self.THE_STORY)
+        (plot,) = document.plots()
+
+        characters = plot.characters(document)
+
+        varn = document.cell_with_id("v1")
+        lia = document.cell_with_id("d1")
+        self.assertEqual(characters, [lia, varn])
+
+    @parameterized.expand(
+        [
+            ("its_overview_is_rewritten", lambda plot: plot.with_overview("A mother.")),
+            ("its_events_change", lambda plot: plot.with_nodes([PlotNode("e1", None)])),
+            ("its_concepts_change", lambda plot: plot.with_concepts([])),
+            ("it_is_folded", lambda plot: plot.with_folded(True)),
+        ]
+    )
+    def test_are_kept_when(self, _, change: Callable[[PlotCell], PlotCell]) -> None:
+        plot = PlotCell("The door", [], [], "", False, None, "p1", [], ["v1", "d1"])
+
+        changed = change(plot)
+
+        self.assertEqual(changed._characters, ("v1", "d1"))
+
+    def test_are_written_into_the_plots_marker(self) -> None:
+        varn = CharacterCell("Captain Varn", "", False, None, "v1")
+        lia = CharacterCell("Lia", "", False, None, "d1")
+        plot = PlotCell("The door", [], [], "She finds the door.", False, None, "p1")
+
+        following = plot.with_characters([varn, lia])
+
+        written = Document.from_cells([following]).text
+        self.assertEqual(
+            written,
+            '<!-- cell: plot id="p1" title="The door" characters="v1, d1" -->\n'
+            "\n"
+            '<ol title="She finds the door.">\n'
+            "</ol>\n",
+        )
+
+
+class CharacterConcepts(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: salient-concept id="k1" title="Motherhood" -->\n'
+        "\n"
+        '<!-- cell: salient-concept id="k2" title="The promise" -->\n'
+        "\n"
+        '<!-- cell: character id="v1" title="Captain Varn" concepts="k2, v1, x9, k1" -->\n'
+        "\n"
+        "She left the fleet.\n"
+    )
+
+    def test_are_the_concepts_the_character_supports_in_its_order_leaving_out_what_is_no_concept(self) -> None:
+        document = Document(self.THE_STORY)
+        varn = document.cell_with_id("v1")
+
+        concepts = varn.concepts(document)
+
+        motherhood, promise = document.salient_concepts()
+        self.assertEqual(concepts, [promise, motherhood])
+
+    @parameterized.expand(
+        [
+            ("its_backstory_is_rewritten", lambda character: character.with_source("She came back.")),
+            ("it_is_folded", lambda character: character.with_folded(True)),
+        ]
+    )
+    def test_are_kept_when(self, _, change: Callable[[CharacterCell], CharacterCell]) -> None:
+        character = CharacterCell("Captain Varn", "", False, None, "v1", ["k1", "k2"])
+
+        changed = change(character)
+
+        self.assertEqual(changed._concepts, ("k1", "k2"))
+
+    def test_are_written_into_the_characters_marker(self) -> None:
+        motherhood = SalientConceptCell("Motherhood", [], "", False, None, "k1")
+        character = CharacterCell("Captain Varn", "She left the fleet.", False, None, "v1")
+
+        supporting = character.with_concepts([motherhood])
+
+        written = Document.from_cells([supporting]).text
+        self.assertEqual(
+            written,
+            '<!-- cell: character id="v1" title="Captain Varn" concepts="k1" -->\n'
+            "\n"
+            "She left the fleet.\n",
+        )

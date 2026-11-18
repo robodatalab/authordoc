@@ -1427,3 +1427,114 @@ describe("standing outside the story", () => {
         expect(standsOutside).toBe(expected);
     });
 });
+
+describe("a plot's characters", () => {
+    const THE_STORY = [
+        '<!-- cell: character id="v1" title="Captain Varn" -->',
+        "",
+        '<!-- cell: character id="d1" title="Lia" -->',
+        "",
+        '<!-- cell: place id="h1" title="Varn\'s house" -->',
+        "",
+        '<!-- cell: plot id="p1" title="Captain Varn and her daughter" characters="d1, h1, x9, v1" -->',
+        "",
+        '<ol title="How Captain Varn gave her life to buy her daughter time.">',
+        "</ol>",
+        "",
+    ].join("\n");
+
+    it("are the characters the plot follows, in its order, leaving out what is no character", () => {
+        const document = new Document(THE_STORY);
+        const [plot] = document.plots();
+
+        const characters = plot.characters(document);
+
+        const varn = document.cellWithId("v1");
+        const lia = document.cellWithId("d1");
+        expect(characters).toEqual([lia, varn]);
+    });
+
+    it.each([
+        ["its overview is rewritten", (plot: PlotCell) => plot.withOverview("A mother.")],
+        ["it is retitled", (plot: PlotCell) => plot.withTitle("A mother")],
+        ["its events change", (plot: PlotCell) => plot.withNodes([new PlotNode("e1", null)])],
+        ["its concepts change", (plot: PlotCell) => plot.withConcepts([])],
+        ["it is folded", (plot: PlotCell) => plot.withFolded(true)],
+    ])("are kept when %s", (_, change) => {
+        const plot = new PlotCell("The door", [], [], "", false, null, "p1", [], ["v1", "d1"]);
+
+        const changed = change(plot);
+
+        expect(changed._characters).toEqual(["v1", "d1"]);
+    });
+
+    it("are written into the plot's marker", () => {
+        const varn = new CharacterCell("Captain Varn", "", false, null, "v1");
+        const lia = new CharacterCell("Lia", "", false, null, "d1");
+        const plot = new PlotCell("The door", [], [], "She finds the door.", false, null, "p1");
+
+        const following = plot.withCharacters([varn, lia]);
+
+        const written = Document.fromCells([following]).text;
+        expect(written).toBe(
+            [
+                '<!-- cell: plot id="p1" title="The door" characters="v1, d1" -->',
+                "",
+                '<ol title="She finds the door.">',
+                "</ol>",
+                "",
+            ].join("\n"),
+        );
+    });
+});
+
+describe("a character's concepts", () => {
+    const THE_STORY = [
+        '<!-- cell: salient-concept id="k1" title="Motherhood" -->',
+        "",
+        '<!-- cell: salient-concept id="k2" title="The promise" -->',
+        "",
+        '<!-- cell: character id="v1" title="Captain Varn" concepts="k2, v1, x9, k1" -->',
+        "",
+        "She left the fleet.",
+        "",
+    ].join("\n");
+
+    it("are the salient concepts the character supports, in its order, leaving out what is no concept", () => {
+        const document = new Document(THE_STORY);
+        const varn = document.cellWithId("v1") as CharacterCell;
+
+        const concepts = varn.concepts(document);
+
+        const [motherhood, promise] = document.salientConcepts();
+        expect(concepts).toEqual([promise, motherhood]);
+    });
+
+    it.each([
+        ["its backstory is rewritten", (character: CharacterCell) => character.withSource("She came back.")],
+        ["it is folded", (character: CharacterCell) => character.withFolded(true)],
+    ])("are kept when %s", (_, change) => {
+        const character = new CharacterCell("Captain Varn", "", false, null, "v1", ["k1", "k2"]);
+
+        const changed = change(character);
+
+        expect(changed._concepts).toEqual(["k1", "k2"]);
+    });
+
+    it("are written into the character's marker", () => {
+        const motherhood = new SalientConceptCell("Motherhood", [], "", false, null, "k1");
+        const character = new CharacterCell("Captain Varn", "She left the fleet.", false, null, "v1");
+
+        const supporting = character.withConcepts([motherhood]);
+
+        const written = Document.fromCells([supporting]).text;
+        expect(written).toBe(
+            [
+                '<!-- cell: character id="v1" title="Captain Varn" concepts="k1" -->',
+                "",
+                "She left the fleet.",
+                "",
+            ].join("\n"),
+        );
+    });
+});
