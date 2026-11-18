@@ -1876,3 +1876,69 @@ class CharacterConcepts(unittest.TestCase):
             "\n"
             "She left the fleet.\n",
         )
+
+
+class PlaceParent(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: place id="en" title="England" -->\n'
+        "\n"
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->\n'
+        "\n"
+        '<!-- cell: character id="v1" title="Varn" -->\n'
+    )
+
+    @parameterized.expand(
+        [
+            ("the_place_of_its_id", "en", "en"),
+            ("none_when_no_cell_has_its_id", "x9", None),
+            ("none_when_the_cell_of_its_id_is_not_a_place", "v1", None),
+            ("none_when_it_names_none", "", None),
+        ]
+    )
+    def test_is(self, _, parent_id: str, expected: str | None) -> None:
+        document = Document(self.THE_STORY)
+        place = PlaceCell("The lane", "", False, None, "l1", parent_id)
+
+        parent = place.parent(document)
+
+        self.assertEqual(None if parent is None else parent.unique_id, expected)
+
+    @parameterized.expand(
+        [
+            ("the_place_given", PlaceCell("England", "", False, None, "en"), "en"),
+            ("none_given_none", None, ""),
+        ]
+    )
+    def test_is_replaced_by(self, _, parent: PlaceCell | None, expected: str) -> None:
+        place = PlaceCell("Hollowmere village", "", False, None, "hv", "x9")
+
+        placed = place.with_parent(parent)
+
+        self.assertEqual(placed._parent, expected)
+
+    @parameterized.expand(
+        [
+            ("its_description_is_rewritten", lambda place: place.with_source("A village of weavers.")),
+            ("it_is_folded", lambda place: place.with_folded(True)),
+        ]
+    )
+    def test_is_kept_when(self, _, change: Callable[[PlaceCell], PlaceCell]) -> None:
+        place = PlaceCell("Hollowmere village", "", False, None, "hv", "en")
+
+        changed = change(place)
+
+        self.assertEqual(changed._parent, "en")
+
+    def test_is_written_into_the_places_marker(self) -> None:
+        england = PlaceCell("England", "", False, None, "en")
+        village = PlaceCell("Hollowmere village", "A village of weavers.", False, None, "hv")
+
+        placed = village.with_parent(england)
+
+        written = Document.from_cells([placed]).text
+        self.assertEqual(
+            written,
+            '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->\n'
+            "\n"
+            "A village of weavers.\n",
+        )

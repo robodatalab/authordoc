@@ -49,6 +49,8 @@ export const PLOT_CHARACTERS = "characters";
 
 export const CHARACTER_CONCEPTS = "concepts";
 
+export const PLACE_PARENT = "parent";
+
 function withoutTheOnesNothingIsSaidAbout(
     attributes: Record<string, string>,
 ): Record<string, string> {
@@ -178,7 +180,10 @@ export class MarkerAttributes implements CellVisitor<Record<string, string>> {
     }
 
     visitPlace(cell: PlaceCell): Record<string, string> {
-        return withoutTheOnesNothingIsSaidAbout({ [TITLE]: cell.title });
+        return withoutTheOnesNothingIsSaidAbout({
+            [TITLE]: cell.title,
+            [PLACE_PARENT]: cell._parent,
+        });
     }
 
     visitUnknown(cell: UnknownCell): Record<string, string> {

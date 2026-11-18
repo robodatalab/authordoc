@@ -40,6 +40,7 @@ from authordoc.visitors.marker_attributes import (
     LANGUAGE,
     NO,
     CHARACTER_CONCEPTS,
+    PLACE_PARENT,
     PLOT_CHARACTERS,
     PLOT_CONCEPTS,
     PLOT_EDGES,
@@ -254,7 +255,9 @@ def _cell_from_marker(
         concepts = _cell_ids_in(attrs.get(CHARACTER_CONCEPTS, ""))
         return CharacterCell(attrs.get(TITLE, ""), source, folded, at, unique_id, concepts)
     if kind == PLACE:
-        return PlaceCell(attrs.get(TITLE, ""), source, folded, at, unique_id)
+        return PlaceCell(
+            attrs.get(TITLE, ""), source, folded, at, unique_id, attrs.get(PLACE_PARENT, "")
+        )
     return UnknownCell(kind, attrs, source, folded, at, unique_id)
 
 
