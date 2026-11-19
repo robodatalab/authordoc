@@ -30,12 +30,13 @@ import {
     StoryWord,
     StoryWordsIterator,
 } from "../../typescript/iterators/story_words_iterator";
-import { parse } from "../../typescript/parser";
+import { parse, parseSuggestions } from "../../typescript/parser";
 
 interface CorpusCase {
     name: string;
     text: string;
     cells: { kind: string; source: string; id: string }[];
+    suggestions: { id: string; changes: string[] }[];
     dumped: string;
 }
 
@@ -54,12 +55,21 @@ describe("the shared corpus — the same documents authordoc/parser.py reads", (
         expect(parsed).toEqual(cells);
     });
 
+    it.each(CORPUS.cases)("reads the suggestions of $name", ({ text, suggestions }) => {
+        const parsed = parseSuggestions(text).map((suggestion) => ({
+            id: suggestion.cellId,
+            changes: suggestion.diff().changes.map((change) => change.constructor.name),
+        }));
+
+        expect(parsed).toEqual(suggestions);
+    });
+
     it.each(CORPUS.cases)(
         "writes back byte for byte: $name",
         ({ text, dumped }) => {
             const document = new Document(text);
 
-            const written = document.text;
+            const written = document.serialize();
 
             expect(written).toBe(dumped);
         },
@@ -67,10 +77,10 @@ describe("the shared corpus — the same documents authordoc/parser.py reads", (
 
     it.each(CORPUS.cases)("survives a round trip: $name", ({ text }) => {
         const document = new Document(text);
-        const written = document.text;
+        const written = document.serialize();
 
         const readBack = new Document(written);
-        const writtenAgain = readBack.text;
+        const writtenAgain = readBack.serialize();
 
         expect(writtenAgain).toBe(written);
     });

@@ -55,8 +55,39 @@ import {
     MarkerAttributes,
 } from "./visitors/marker_attributes";
 import { attributesIn, writtenAttributeValue } from "./written_attributes";
+import type { AuthorDocChange } from "./author_doc_change";
+import { CellAdded } from "./changes/cell_added";
+import { CellHeaderChanged } from "./changes/cell_header_changed";
+import { CellRemoved } from "./changes/cell_removed";
+import { CellTextChanged } from "./changes/cell_text_changed";
+import { CellsMoved } from "./changes/cells_moved";
+import { AuthorDocDiff } from "./diff";
+import { Suggestion } from "./suggestion";
+import {
+    AFTER,
+    AT,
+    BEFORE,
+    CELL_ADDED,
+    CELL_HEADER_CHANGED,
+    CELL_IDS_AFTER,
+    CELL_IDS_BEFORE,
+    CELL_IDS_SEPARATOR,
+    CELL_REMOVED,
+    CELL_TEXT_CHANGED,
+    CELLS_MOVED,
+    ChangeMarkers,
+    FROM,
+    KIND,
+    TEXT,
+    TEXT_REMOVED,
+    TEXT_WRITTEN,
+} from "./visitors/change_markers";
 
 const MARKER = /^<!--\s*cell:\s*([A-Za-z0-9][A-Za-z0-9_-]*)\s*(.*?)\s*-->\s*$/;
+
+const SUGGESTION_MARKER = /^<!--\s*suggestion:\s*(.*?)\s*-->\s*$/;
+
+const CHANGE_MARKER = /^<!--\s*change:\s*([a-z]+)\s*(.*?)\s*-->\s*$/;
 
 const SALIENT_CONCEPT_REFERENCE = /^\s*(?:([^:\s]+):)?(\d+)-(\d+)\s*$/;
 
@@ -79,7 +110,7 @@ export function parse(text: string): Cell[] {
     let opened = false;
 
     function close(): void {
-        // `Document.text` strips blank lines off both ends of a cell's text, so
+        // `serialize` strips blank lines off both ends of a cell's text, so
         // the lines it occupies are the ones between the outermost non-blank ones.
         const written = body.flatMap((line, i) => (line !== "" ? [i] : []));
         const source = body.join("\n").replace(/^\n+|\n+$/g, "");
@@ -105,6 +136,12 @@ export function parse(text: string): Cell[] {
     // Split on "\n" alone, as the editor's reader does: a form feed or a
     // U+2028 is a character the author wrote, not a line the document has.
     for (const [index, line] of text.split("\n").entries()) {
+        if (SUGGESTION_MARKER.test(line)) {
+            close();
+            opened = false;
+            body = [];
+            continue;
+        }
         const marker = MARKER.exec(line);
         if (!marker) {
             body.push(line);
@@ -123,6 +160,159 @@ export function parse(text: string): Cell[] {
     }
     close();
     return cells;
+}
+
+export function parseSuggestions(text: string): Suggestion[] {
+    const suggestions: Suggestion[] = [];
+    let cellId: string | null = null;
+    let changes: AuthorDocChange[] = [];
+
+    function close(): void {
+        if (cellId !== null) {
+            const diff = new AuthorDocDiff(changes);
+            const suggestion = new Suggestion(cellId, diff);
+            suggestions.push(suggestion);
+        }
+        cellId = null;
+        changes = [];
+    }
+
+    for (const line of text.split("\n")) {
+        const suggestionMarker = SUGGESTION_MARKER.exec(line);
+        if (suggestionMarker) {
+            close();
+            const attrs = attributesIn(suggestionMarker[1]);
+            cellId = attrs[UNIQUE_ID] ?? "";
+            continue;
+        }
+        const changeMarker = CHANGE_MARKER.exec(line);
+        if (changeMarker && cellId !== null) {
+            const attrs = attributesIn(changeMarker[2]);
+            const change = changeFromMarker(changeMarker[1], attrs, cellId);
+            changes.push(change);
+            continue;
+        }
+        if (line.trim() !== "") {
+            close();
+        }
+    }
+    close();
+    return suggestions;
+}
+
+function attributesPrefixed(
+    prefix: string,
+    attrs: Record<string, string>,
+): Record<string, string> {
+    const named = Object.entries(attrs).flatMap(([name, value]) =>
+        name.startsWith(prefix) ? [[name.slice(prefix.length), value]] : [],
+    );
+    const attributes = Object.fromEntries(named);
+    return attributes;
+}
+
+function cellOfTheChange(
+    kind: string,
+    header: Record<string, string>,
+    source: string,
+    cellId: string,
+): Cell {
+    const folded = header[FOLDED] === TRUE;
+    const attrs = { ...header };
+    delete attrs[FOLDED];
+    const cell = cellFromMarker(kind, attrs, source, folded, null, cellId);
+    return cell;
+}
+
+function changeFromMarker(
+    change: string,
+    attrs: Record<string, string>,
+    cellId: string,
+): AuthorDocChange {
+    const kind = attrs[KIND] ?? MARKDOWN;
+    const headerBefore = attributesPrefixed(BEFORE, attrs);
+    const headerAfter = attributesPrefixed(AFTER, attrs);
+    switch (change) {
+        case CELL_ADDED: {
+            const cellIndex = Number(attrs[AT]);
+            const cell = cellOfTheChange(kind, headerAfter, attrs[TEXT] ?? "", cellId);
+            return new CellAdded(cellIndex, cell);
+        }
+        case CELL_REMOVED: {
+            const cellIndex = Number(attrs[AT]);
+            const cell = cellOfTheChange(kind, headerBefore, attrs[TEXT] ?? "", cellId);
+            return new CellRemoved(cellIndex, cell);
+        }
+        case CELLS_MOVED: {
+            const cellIdsWrittenBefore = attrs[CELL_IDS_BEFORE] ?? "";
+            const cellIdsWrittenAfter = attrs[CELL_IDS_AFTER] ?? "";
+            const cellIdsBefore = cellIdsWrittenBefore.split(CELL_IDS_SEPARATOR);
+            const cellIdsAfter = cellIdsWrittenAfter.split(CELL_IDS_SEPARATOR);
+            return new CellsMoved(cellIdsBefore, cellIdsAfter);
+        }
+        case CELL_HEADER_CHANGED: {
+            const before = cellOfTheChange(kind, headerBefore, "", cellId);
+            const after = cellOfTheChange(kind, headerAfter, "", cellId);
+            return new CellHeaderChanged(before, after);
+        }
+        case CELL_TEXT_CHANGED: {
+            const fromCharacter = Number(attrs[FROM]);
+            return new CellTextChanged(
+                cellId,
+                fromCharacter,
+                attrs[TEXT_REMOVED] ?? "",
+                attrs[TEXT_WRITTEN] ?? "",
+            );
+        }
+        default:
+            throw new Error(`No change is written as "${change}"`);
+    }
+}
+
+export function serialize(
+    cells: readonly Cell[],
+    suggestions: readonly Suggestion[],
+): string {
+    const markerAttributes = new MarkerAttributes();
+    const out: string[] = [];
+    for (const cell of cells) {
+        const marker = markerFor(cell, markerAttributes);
+        out.push(marker);
+        out.push("");
+        if (cell.source) {
+            out.push(cell.source);
+            out.push("");
+        }
+        const suggestion = suggestions.find(
+            (held) => held.cellId === cell.uniqueId,
+        );
+        if (suggestion !== undefined) {
+            const suggestionLines = suggestionWritten(suggestion);
+            out.push(...suggestionLines);
+            out.push("");
+        }
+    }
+    const cellIds = cells.map((cell) => cell.uniqueId);
+    const suggestionsForNoCell = suggestions.filter(
+        (suggestion) => !cellIds.includes(suggestion.cellId),
+    );
+    for (const suggestion of suggestionsForNoCell) {
+        const suggestionLines = suggestionWritten(suggestion);
+        out.push(...suggestionLines);
+        out.push("");
+    }
+    const serialized = out.join("\n");
+    return serialized;
+}
+
+function suggestionWritten(suggestion: Suggestion): string[] {
+    const cellIdWritten = writtenAttributeValue(suggestion.cellId);
+    const marker = `<!-- suggestion: ${UNIQUE_ID}="${cellIdWritten}" -->`;
+    const changeMarkers = new ChangeMarkers();
+    const diff = suggestion.diff();
+    const changesWritten = diff.changes.map((change) => change.accept(changeMarkers));
+    const written = [marker, ...changesWritten];
+    return written;
 }
 
 export function cellOfKind(kind: string): Cell {

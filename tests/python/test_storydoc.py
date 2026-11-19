@@ -9,7 +9,7 @@ from uuid import UUID
 from parameterized import parameterized
 
 from authordoc import storydoc
-from authordoc.parser import parse
+from authordoc.parser import parse, parse_suggestions
 from authordoc.iterators.chapters_iterator import ChaptersIterator
 from authordoc.iterators.prose_cells_iterator import ProseCellsIterator
 from authordoc.iterators.story_lines_iterator import StoryLinesIterator
@@ -108,13 +108,23 @@ class Corpus(unittest.TestCase):
                 ]
                 self.assertEqual(parsed, expected)
 
+    def test_every_document_reads_the_suggestions_the_corpus_says(self) -> None:
+        for case in CORPUS["cases"]:
+            with self.subTest(case=case["name"]):
+                expected = [(s["id"], s["changes"]) for s in case["suggestions"]]
+                parsed = [
+                    (suggestion.cell_id, [type(change).__name__ for change in suggestion.diff().changes])
+                    for suggestion in parse_suggestions(case["text"])
+                ]
+                self.assertEqual(parsed, expected)
+
     def test_every_document_is_written_back_byte_for_byte(self) -> None:
         # Round-tripping through this library alone would let the two
         # implementations drift apart while both stayed self-consistent, so the
         # corpus pins the bytes rather than the behaviour.
         for case in CORPUS["cases"]:
             with self.subTest(case=case["name"]):
-                written = Document(case["text"]).text
+                written = Document(case["text"]).serialize()
                 self.assertEqual(written, case["dumped"])
 
     def test_every_document_survives_a_round_trip(self) -> None:

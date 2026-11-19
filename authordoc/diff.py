@@ -82,5 +82,5 @@ class AuthorDocDiff:
         cells: list[Cell] = document.cells
         for change in self.changes:
             cells = change.apply_to(cells)
-        applied = Document.from_cells(cells, document.path)
+        applied = Document.from_cells(cells, document.path, document.suggestions)
         return applied
