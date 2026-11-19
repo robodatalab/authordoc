@@ -1,16 +1,18 @@
 {
-    "comment": "Documents both storydoc libraries must read AND write identically. Each case is run by tests/python/test_storydoc.py and tests/typescript/storydoc.test.ts: `text` must parse to `cells`, and re-serialising must produce `dumped` byte for byte. Add a case here and both languages are held to it.",
+    "comment": "Documents both storydoc libraries must read AND write identically. Each case is run by tests/python/test_storydoc.py and tests/typescript/storydoc.test.ts: `text` must parse to `cells` and `suggestions` (the cell each patches, and the kinds of change in its diff), and re-serialising must produce `dumped` byte for byte. Add a case here and both languages are held to it.",
     "cases": [
         {
             "name": "an empty document has no cells",
             "text": "",
             "cells": [],
+            "suggestions": [],
             "dumped": ""
         },
         {
             "name": "a document of only blank lines has no cells",
             "text": "\n\n\n",
             "cells": [],
+            "suggestions": [],
             "dumped": ""
         },
         {
@@ -23,6 +25,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: chapter id=\"c1\" title=\"The First Night\" -->\n\nThe lantern had gone out.\n"
         },
         {
@@ -35,6 +38,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: chapter id=\"c1\" title=\"One\" -->\n\nProse.\n"
         },
         {
@@ -52,6 +56,7 @@
                     "id": "c2"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: contents id=\"c1\" -->\n\n<!-- cell: chapter id=\"c2\" title=\"One\" -->\n\nProse.\n"
         },
         {
@@ -64,6 +69,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: contents id=\"c1\" -->\n"
         },
         {
@@ -76,6 +82,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: epigraph id=\"c1\" attribution=\"Anon\" -->\n\nA line of verse.\n"
         },
         {
@@ -88,6 +95,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: cover id=\"c1\" src=\"art/cover.jpg\" alt=\"The cover\" -->\n\n![The cover](art/cover.jpg)\n"
         },
         {
@@ -100,6 +108,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: chapter id=\"c1\" title=\"She said \\\"no\\\"\" -->\n\nProse.\n"
         },
         {
@@ -112,6 +121,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: cover id=\"c1\" src=\"art\\\\cover.jpg\" -->\n\n![Cover](art/cover.jpg)\n"
         },
         {
@@ -124,6 +134,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: chapter id=\"c1\" title=\"One\" -->\n\nFirst.\n\n\nSecond.\n"
         },
         {
@@ -136,6 +147,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: chapter id=\"c1\" title=\"One\" -->\n\n<!-- a note to myself -->\nProse.\n"
         },
         {
@@ -163,6 +175,7 @@
                     "id": "c4"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: part id=\"c1\" title=\"Book One\" -->\n\n<!-- cell: chapter id=\"c2\" title=\"The First Night\" -->\n\nIt began badly.\n\n<!-- cell: part id=\"c3\" title=\"Book Two\" -->\n\n<!-- cell: chapter id=\"c4\" title=\"After\" -->\n\nIt ended worse.\n"
         },
         {
@@ -200,6 +213,7 @@
                     "id": "c6"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: cover id=\"c1\" src=\"cover.jpg\" -->\n\n![Cover](cover.jpg)\n\n<!-- cell: title-page id=\"c2\" -->\n\n# The Lantern of Small Hours\n\n<!-- cell: contents id=\"c3\" -->\n\n<!-- cell: chapter id=\"c4\" title=\"The First Night\" -->\n\nIt began badly.\n\n<!-- cell: disclaimer id=\"c5\" -->\n\nAny resemblance is coincidental.\n\n<!-- cell: about id=\"c6\" -->\n\n[My website](https://example.com)\n"
         },
         {
@@ -212,6 +226,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nOne.\n"
         },
         {
@@ -224,6 +239,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nOne.\fTwo.\n"
         },
         {
@@ -236,6 +252,7 @@
                     "id": "c1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nOne.\n"
         },
         {
@@ -248,6 +265,7 @@
                     "id": "p2"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: plot id=\"p2\" title=\"Captain Varn and her daughter\" edges=\"x1:e1>e2, x2:e2>e3\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\" words=\"412-468\">Captain Varn watches the news with her daughter.</li>\n<li id=\"e2\" timestamp=\"1.2\" place=\"c1\" characters=\"v1\" words=\"501-545\">Varn is given command of the corvette.</li>\n<li id=\"e3\" timestamp=\"1.4\" place=\"h1\">Varn says goodbye and promises to talk every day.</li>\n</ol>\n"
         },
         {
@@ -260,6 +278,7 @@
                     "id": "p1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: plot id=\"p1\" title=\"The door\" edges=\"e1:n1>n2\" -->\n\n<ol title=\"She finds the door.\">\n<li id=\"n1\" words=\"2-3\"></li>\n<li id=\"n2\" words=\"0-1\"></li>\n</ol>\n"
         },
         {
@@ -272,6 +291,7 @@
                     "id": "p3"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: plot id=\"p3\" -->\n\n<ol title=\"She finds \\\"the\\\" door.\\nThen she opens it.\">\n<li id=\"e1\" place=\"h2\">She opens the door.</li>\n</ol>\n"
         },
         {
@@ -284,6 +304,7 @@
                     "id": "v1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: character id=\"v1\" title=\"Captain Varn\" -->\n\nShe left the fleet after her husband died, and came back only for the war.\n"
         },
         {
@@ -296,6 +317,7 @@
                     "id": "h1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: place id=\"h1\" title=\"Varn's house\" -->\n\nA narrow house on the cliffs, where she and her daughter watch the launches.\n"
         },
         {
@@ -308,6 +330,7 @@
                     "id": "p4"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: plot id=\"p4\" -->\n\n<ol title=\"She leaves.\">\n<li id=\"e1\" timestamp=\"2.1\" characters=\"v1\">She boards the shuttle.</li>\n</ol>\n"
         },
         {
@@ -320,6 +343,7 @@
                     "id": "v1"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: character id=\"v1\" title=\"Captain Varn\" concepts=\"k1, k2\" -->\n\nShe left the fleet after her husband died.\n"
         },
         {
@@ -332,6 +356,7 @@
                     "id": "p5"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: plot id=\"p5\" title=\"Captain Varn and her daughter\" concepts=\"k1\" characters=\"v1, d1\" -->\n\n<ol title=\"How Captain Varn gave her life to buy her daughter time.\">\n<li id=\"e1\" timestamp=\"1.1\" place=\"h1\" characters=\"v1, d1\">Captain Varn watches the news with her daughter.</li>\n</ol>\n"
         },
         {
@@ -349,7 +374,135 @@
                     "id": "hv"
                 }
             ],
+            "suggestions": [],
             "dumped": "<!-- cell: place id=\"en\" title=\"England\" -->\n\n<!-- cell: place id=\"hv\" title=\"Hollowmere village\" parent=\"en\" -->\n\nA village of weavers.\n"
+        },
+        {
+            "name": "a suggestion follows the cell it patches and belongs to no cell",
+            "text": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c1\" -->\n<!-- change: text from=\"16\" removed=\"\" written=\" at last\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n",
+            "cells": [
+                {
+                    "kind": "markdown",
+                    "source": "She saw the door.",
+                    "id": "c1"
+                },
+                {
+                    "kind": "markdown",
+                    "source": "He heard the bell.",
+                    "id": "c2"
+                }
+            ],
+            "suggestions": [
+                {
+                    "id": "c1",
+                    "changes": [
+                        "CellTextChanged"
+                    ]
+                }
+            ],
+            "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c1\" -->\n<!-- change: text from=\"16\" removed=\"\" written=\" at last\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n"
+        },
+        {
+            "name": "a suggestion of a cell the document does not have yet is written after every cell",
+            "text": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c9\" -->\n<!-- change: added at=\"1\" kind=\"markdown\" text=\"He heard \\\"the bell\\\".\\nTwice.\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n",
+            "cells": [
+                {
+                    "kind": "markdown",
+                    "source": "She saw the door.",
+                    "id": "c1"
+                },
+                {
+                    "kind": "markdown",
+                    "source": "He heard the bell.",
+                    "id": "c2"
+                }
+            ],
+            "suggestions": [
+                {
+                    "id": "c9",
+                    "changes": [
+                        "CellAdded"
+                    ]
+                }
+            ],
+            "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n\n<!-- suggestion: id=\"c9\" -->\n<!-- change: added at=\"1\" kind=\"markdown\" text=\"He heard \\\"the bell\\\".\\nTwice.\" -->\n"
+        },
+        {
+            "name": "a suggestion changes a cell's header and its text",
+            "text": "<!-- cell: chapter id=\"h1\" title=\"Bell\" -->\n\nThe bell rings.\n\n<!-- suggestion: id=\"h1\" -->\n<!-- change: header kind=\"chapter\" before-title=\"Bell\" after-title=\"The bell tolls\" after-folded=\"true\" -->\n<!-- change: text from=\"9\" removed=\"rings\" written=\"tolls at night\" -->\n",
+            "cells": [
+                {
+                    "kind": "chapter",
+                    "source": "The bell rings.",
+                    "id": "h1"
+                }
+            ],
+            "suggestions": [
+                {
+                    "id": "h1",
+                    "changes": [
+                        "CellHeaderChanged",
+                        "CellTextChanged"
+                    ]
+                }
+            ],
+            "dumped": "<!-- cell: chapter id=\"h1\" title=\"Bell\" -->\n\nThe bell rings.\n\n<!-- suggestion: id=\"h1\" -->\n<!-- change: header kind=\"chapter\" before-title=\"Bell\" after-title=\"The bell tolls\" after-folded=\"true\" -->\n<!-- change: text from=\"9\" removed=\"rings\" written=\"tolls at night\" -->\n"
+        },
+        {
+            "name": "a suggestion removes a cell and moves the others",
+            "text": "<!-- cell: markdown id=\"a1\" -->\n\nFirst.\n\n<!-- cell: markdown id=\"a2\" -->\n\nSecond.\n\n<!-- suggestion: id=\"a2\" -->\n<!-- change: removed at=\"1\" kind=\"markdown\" text=\"Second.\" -->\n<!-- change: moved before=\"a1,a3\" after=\"a3,a1\" -->\n\n<!-- cell: markdown id=\"a3\" -->\n\nThird.\n",
+            "cells": [
+                {
+                    "kind": "markdown",
+                    "source": "First.",
+                    "id": "a1"
+                },
+                {
+                    "kind": "markdown",
+                    "source": "Second.",
+                    "id": "a2"
+                },
+                {
+                    "kind": "markdown",
+                    "source": "Third.",
+                    "id": "a3"
+                }
+            ],
+            "suggestions": [
+                {
+                    "id": "a2",
+                    "changes": [
+                        "CellRemoved",
+                        "CellsMoved"
+                    ]
+                }
+            ],
+            "dumped": "<!-- cell: markdown id=\"a1\" -->\n\nFirst.\n\n<!-- cell: markdown id=\"a2\" -->\n\nSecond.\n\n<!-- suggestion: id=\"a2\" -->\n<!-- change: removed at=\"1\" kind=\"markdown\" text=\"Second.\" -->\n<!-- change: moved before=\"a1,a3\" after=\"a3,a1\" -->\n\n<!-- cell: markdown id=\"a3\" -->\n\nThird.\n"
+        },
+        {
+            "name": "text below a suggestion belongs to no cell and is dropped",
+            "text": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c1\" -->\n<!-- change: text from=\"16\" removed=\"\" written=\" at last\" -->\n\nStray words.\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n",
+            "cells": [
+                {
+                    "kind": "markdown",
+                    "source": "She saw the door.",
+                    "id": "c1"
+                },
+                {
+                    "kind": "markdown",
+                    "source": "He heard the bell.",
+                    "id": "c2"
+                }
+            ],
+            "suggestions": [
+                {
+                    "id": "c1",
+                    "changes": [
+                        "CellTextChanged"
+                    ]
+                }
+            ],
+            "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c1\" -->\n<!-- change: text from=\"16\" removed=\"\" written=\" at last\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n"
         }
     ]
 }

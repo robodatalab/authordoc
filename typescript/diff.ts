@@ -92,6 +92,6 @@ export class AuthorDocDiff {
         for (const change of this.changes) {
             cells = change.applyTo(cells);
         }
-        return Document.fromCells(cells, document.path);
+        return Document.fromCells(cells, document.path, document.suggestions);
     }
 }

@@ -36,21 +36,23 @@ import { PlotCell, PlotEdge, PlotNode } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
 import { AuthorDocDiff } from "./diff";
-import { markerFor, parse } from "./parser";
+import { parse, parseSuggestions, serialize } from "./parser";
+import type { Suggestion } from "./suggestion";
 import { PassagesSynchronizer } from "./synchronizers/passages_synchronizer";
-import { MarkerAttributes } from "./visitors/marker_attributes";
 
 export const EXTENSION = ".author";
 
 /** An .author document */
 export class Document {
     private _cells: readonly Cell[];
+    private _suggestions: readonly Suggestion[];
 
     constructor(
         text: string,
         private readonly _path: string | null = null,
     ) {
         this._cells = parse(text);
+        this._suggestions = parseSuggestions(text);
     }
 
     /**
@@ -64,11 +66,13 @@ export class Document {
     static fromCells(
         cells: readonly Cell[],
         path: string | null = null,
+        suggestions: readonly Suggestion[] = [],
     ): Document {
         const written = new Document("", path);
         written._cells = [...cells];
-        const text = written.text;
-        const built = new Document(text, path);
+        written._suggestions = [...suggestions];
+        const serialized = written.serialize();
+        const built = new Document(serialized, path);
         return built;
     }
 
@@ -82,25 +86,30 @@ export class Document {
         return cells;
     }
 
-    /** The document as text, such that `parse(text) == cells`. */
-
+    /** @deprecated Use `serialize()`. */
     get text(): string {
-        const markerAttributes = new MarkerAttributes();
-        const out: string[] = [];
-        for (const cell of this._cells) {
-            const marker = markerFor(cell, markerAttributes);
-            out.push(marker);
-            out.push("");
-            if (cell.source) {
-                out.push(cell.source);
-                out.push("");
-            }
-        }
-        return out.join("\n");
+        const serialized = this.serialize();
+        return serialized;
+    }
+
+    /** The document as text, such that `parse(text) == cells`. */
+    serialize(): string {
+        const serialized = serialize(this._cells, this._suggestions);
+        return serialized;
+    }
+
+    get suggestions(): readonly Suggestion[] {
+        const suggestions = [...this._suggestions];
+        return suggestions;
+    }
+
+    suggestionFor(cellId: string): Suggestion | undefined {
+        return this._suggestions.find((suggestion) => suggestion.cellId === cellId);
     }
 
     get lines(): string[] {
-        return splitlines(this.text);
+        const serialized = this.serialize();
+        return splitlines(serialized);
     }
 
     /** What the book says of itself, blank in a document that says nothing. */
@@ -141,7 +150,11 @@ export class Document {
      * changed: the one you hold stays as it is.
      */
     withCells(cells: readonly Cell[]): Document {
-        const written = Document.fromCells(cells, this._path);
+        const written = Document.fromCells(
+            cells,
+            this._path,
+            this._suggestions,
+        );
         const change = AuthorDocDiff.diff(this, written);
         const synchronizer = new PassagesSynchronizer();
         const passagesMoved = synchronizer.synchronize(this, change);
@@ -157,6 +170,29 @@ export class Document {
         const replaced = this._cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
         const withTheCell = this.withCells(replaced);
         return withTheCell;
+    }
+
+    withSuggestion(suggestion: Suggestion): Document {
+        const others = this._suggestions.filter(
+            (held) => held.cellId !== suggestion.cellId,
+        );
+        const withTheSuggestion = Document.fromCells(this._cells, this._path, [
+            ...others,
+            suggestion,
+        ]);
+        return withTheSuggestion;
+    }
+
+    withoutSuggestion(cellId: string): Document {
+        const others = this._suggestions.filter(
+            (held) => held.cellId !== cellId,
+        );
+        const withoutTheSuggestion = Document.fromCells(
+            this._cells,
+            this._path,
+            others,
+        );
+        return withoutTheSuggestion;
     }
 
     salientConcepts(): SalientConceptCell[] {
@@ -205,7 +241,7 @@ export class Document {
     }
 
     toString(): string {
-        return this.text;
+        return this.serialize();
     }
 
     /** The cell `line` falls in. */

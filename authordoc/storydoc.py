@@ -32,6 +32,7 @@ marker opens a new cell. Markdown has the same bargain with fences.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TypeVar
@@ -40,8 +41,8 @@ from authordoc.cells.cell import Cell
 from authordoc.cells.plot_cell import PlotCell, PlotEdge, PlotNode
 from authordoc.cells.salient_concept_cell import SalientConceptCell
 from authordoc.cells.title_page_cell import TitlePageCell
-from authordoc.parser import marker_for, parse
-from authordoc.visitors.marker_attributes import MarkerAttributes
+from authordoc.parser import parse, parse_suggestions, serialize
+from authordoc.suggestion import Suggestion
 
 EXTENSION = ".author"
 
@@ -54,9 +55,10 @@ class Document:
     def __init__(self, text: str, path: Path | None = None) -> None:
         self._path = path
         self._cells = parse(text)
+        self._suggestions = parse_suggestions(text)
 
     @classmethod
-    def from_cells(cls, cells: Sequence[Cell], path: Path | None = None) -> Document:
+    def from_cells(cls, cells: Sequence[Cell], path: Path | None = None, suggestions: Sequence[Suggestion] = ()) -> Document:
         """A new document made of `cells`, in their order. The cells are written
         out and read back, so every cell is as a fresh read of the file gives it,
         with the lines it is written on.
@@ -65,8 +67,9 @@ class Document:
         `with_cell`, which keep what points at the story's words in step."""
         written = cls("", path)
         written._cells = list(cells)
-        text = written.text
-        built = cls(text, path)
+        written._suggestions = list(suggestions)
+        serialized = written.serialize()
+        built = cls(serialized, path)
         return built
 
     @property
@@ -81,21 +84,28 @@ class Document:
 
     @property
     def text(self) -> str:
+        """Deprecated: use `serialize()`."""
+        warnings.warn("Document.text is deprecated; use Document.serialize()", DeprecationWarning, stacklevel=2)
+        serialized = self.serialize()
+        return serialized
+
+    def serialize(self) -> str:
         """The document as text, such that `parse(text) == cells`."""
-        marker_attributes = MarkerAttributes()
-        out: list[str] = []
-        for cell in self._cells:
-            marker = marker_for(cell, marker_attributes)
-            out.append(marker)
-            out.append("")
-            if cell.source:
-                out.append(cell.source)
-                out.append("")
-        return "\n".join(out)
+        serialized = serialize(self._cells, self._suggestions)
+        return serialized
+
+    @property
+    def suggestions(self) -> list[Suggestion]:
+        suggestions = list(self._suggestions)
+        return suggestions
+
+    def suggestion_for(self, cell_id: str) -> Suggestion | None:
+        return next((suggestion for suggestion in self._suggestions if suggestion.cell_id == cell_id), None)
 
     @property
     def lines(self) -> list[str]:
-        return self.text.splitlines()
+        serialized = self.serialize()
+        return serialized.splitlines()
 
     @classmethod
     def load(cls, path: Path) -> "Document":
@@ -103,7 +113,8 @@ class Document:
 
     def save(self) -> None:
         assert self._path is not None
-        self._path.write_text(self.text, encoding="utf-8")
+        serialized = self.serialize()
+        self._path.write_text(serialized, encoding="utf-8")
 
     @property
     def title_page(self) -> TitlePageCell:
@@ -139,7 +150,7 @@ class Document:
         from authordoc.diff import AuthorDocDiff
         from authordoc.synchronizers.passages_synchronizer import PassagesSynchronizer
 
-        written = Document.from_cells(cells, self._path)
+        written = Document.from_cells(cells, self._path, self._suggestions)
         change = AuthorDocDiff.diff(self, written)
         synchronizer = PassagesSynchronizer()
         passages_moved = synchronizer.synchronize(self, change)
@@ -152,6 +163,16 @@ class Document:
         replaced = [cell if held.unique_id == cell.unique_id else held for held in self._cells]
         with_the_cell = self.with_cells(replaced)
         return with_the_cell
+
+    def with_suggestion(self, suggestion: Suggestion) -> Document:
+        others = [held for held in self._suggestions if held.cell_id != suggestion.cell_id]
+        with_the_suggestion = Document.from_cells(self._cells, self._path, [*others, suggestion])
+        return with_the_suggestion
+
+    def without_suggestion(self, cell_id: str) -> Document:
+        others = [held for held in self._suggestions if held.cell_id != cell_id]
+        without_the_suggestion = Document.from_cells(self._cells, self._path, others)
+        return without_the_suggestion
 
     def salient_concepts(self) -> list[SalientConceptCell]:
         return [cell for cell in self._cells if isinstance(cell, SalientConceptCell)]
@@ -168,7 +189,7 @@ class Document:
         return plot
 
     def __str__(self) -> str:
-        return self.text
+        return self.serialize()
 
     def cell_at(self, line: int) -> Cell | None:
         """The cell `line` falls in."""

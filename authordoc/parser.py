@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from uuid import uuid4
 
 from authordoc.cells.cell import Cell
@@ -57,12 +58,42 @@ from authordoc.visitors.marker_attributes import (
     MarkerAttributes,
 )
 from authordoc.written_attributes import attributes_in, written_attribute_value
+from authordoc.author_doc_change import AuthorDocChange
+from authordoc.changes.cell_added import CellAdded
+from authordoc.changes.cell_header_changed import CellHeaderChanged
+from authordoc.changes.cell_removed import CellRemoved
+from authordoc.changes.cell_text_changed import CellTextChanged
+from authordoc.changes.cells_moved import CellsMoved
+from authordoc.suggestion import Suggestion
+from authordoc.visitors.change_markers import (
+    AFTER,
+    AT,
+    BEFORE,
+    CELL_ADDED,
+    CELL_HEADER_CHANGED,
+    CELL_IDS_AFTER,
+    CELL_IDS_BEFORE,
+    CELL_IDS_SEPARATOR,
+    CELL_REMOVED,
+    CELL_TEXT_CHANGED,
+    CELLS_MOVED,
+    FROM,
+    KIND,
+    TEXT,
+    TEXT_REMOVED,
+    TEXT_WRITTEN,
+    ChangeMarkers,
+)
 
 _UNIQUE_ID = "id"
 FOLDED = "folded"
 _TRUE = "true"
 
 _MARKER = re.compile(r"^<!--\s*cell:\s*([A-Za-z0-9][A-Za-z0-9_-]*)\s*(.*?)\s*-->\s*$")
+
+_SUGGESTION_MARKER = re.compile(r"^<!--\s*suggestion:\s*(.*?)\s*-->\s*$")
+
+_CHANGE_MARKER = re.compile(r"^<!--\s*change:\s*([a-z]+)\s*(.*?)\s*-->\s*$")
 
 _SALIENT_CONCEPT_REFERENCE = re.compile(r"^\s*(?:([^:\s]+):)?(\d+)-(\d+)\s*$")
 
@@ -79,7 +110,7 @@ def parse(text: str) -> list[Cell]:
     opened = False
 
     def close() -> None:
-        # `Document.text` strips blank lines off both ends of a cell's text, so
+        # `serialize` strips blank lines off both ends of a cell's text, so
         # the lines it occupies are the ones between the outermost non-blank ones.
         written = [i for i, line in enumerate(body) if line != ""]
         source = "\n".join(body).strip("\n")
@@ -93,6 +124,11 @@ def parse(text: str) -> list[Cell]:
     # Split on "\n" alone, as the editor's reader does: a form feed or a
     # U+2028 is a character the author wrote, not a line the document has.
     for index, line in enumerate(text.split("\n")):
+        if _SUGGESTION_MARKER.match(line):
+            close()
+            opened = False
+            body = []
+            continue
         marker = _MARKER.match(line)
         if not marker:
             body.append(line)
@@ -107,6 +143,121 @@ def parse(text: str) -> list[Cell]:
         first = index + 1
     close()
     return cells
+
+
+def parse_suggestions(text: str) -> list[Suggestion]:
+    # The diff reads documents, so it is imported where it is used.
+    from authordoc.diff import AuthorDocDiff
+
+    suggestions: list[Suggestion] = []
+    cell_id: str | None = None
+    changes: list[AuthorDocChange] = []
+
+    def close() -> None:
+        nonlocal cell_id, changes
+        if cell_id is not None:
+            diff = AuthorDocDiff(changes)
+            suggestion = Suggestion(cell_id, diff)
+            suggestions.append(suggestion)
+        cell_id = None
+        changes = []
+
+    for line in text.split("\n"):
+        suggestion_marker = _SUGGESTION_MARKER.match(line)
+        if suggestion_marker:
+            close()
+            suggestion_said = suggestion_marker.group(1)
+            attrs = attributes_in(suggestion_said)
+            cell_id = attrs.get(_UNIQUE_ID, "")
+            continue
+        change_marker = _CHANGE_MARKER.match(line)
+        if change_marker and cell_id is not None:
+            change_written = change_marker.group(1)
+            change_said = change_marker.group(2)
+            attrs = attributes_in(change_said)
+            change = _change_from_marker(change_written, attrs, cell_id)
+            changes.append(change)
+            continue
+        if line.strip():
+            close()
+    close()
+    return suggestions
+
+
+def _attributes_prefixed(prefix: str, attrs: dict[str, str]) -> dict[str, str]:
+    attributes = {name[len(prefix) :]: value for name, value in attrs.items() if name.startswith(prefix)}
+    return attributes
+
+
+def _cell_of_the_change(kind: str, header: dict[str, str], source: str, cell_id: str) -> Cell:
+    attrs = dict(header)
+    folded = attrs.pop(FOLDED, "") == _TRUE
+    cell = _cell_from_marker(kind, attrs, source, folded, None, cell_id)
+    return cell
+
+
+def _change_from_marker(change: str, attrs: dict[str, str], cell_id: str) -> AuthorDocChange:
+    kind = attrs.get(KIND, MARKDOWN)
+    text = attrs.get(TEXT, "")
+    header_before = _attributes_prefixed(BEFORE, attrs)
+    header_after = _attributes_prefixed(AFTER, attrs)
+    if change == CELL_ADDED:
+        cell_index = int(attrs[AT])
+        cell = _cell_of_the_change(kind, header_after, text, cell_id)
+        return CellAdded(cell_index, cell)
+    if change == CELL_REMOVED:
+        cell_index = int(attrs[AT])
+        cell = _cell_of_the_change(kind, header_before, text, cell_id)
+        return CellRemoved(cell_index, cell)
+    if change == CELLS_MOVED:
+        cell_ids_before = attrs.get(CELL_IDS_BEFORE, "").split(CELL_IDS_SEPARATOR)
+        cell_ids_after = attrs.get(CELL_IDS_AFTER, "").split(CELL_IDS_SEPARATOR)
+        return CellsMoved(cell_ids_before, cell_ids_after)
+    if change == CELL_HEADER_CHANGED:
+        before = _cell_of_the_change(kind, header_before, "", cell_id)
+        after = _cell_of_the_change(kind, header_after, "", cell_id)
+        return CellHeaderChanged(before, after)
+    if change == CELL_TEXT_CHANGED:
+        from_character = int(attrs[FROM])
+        text_removed = attrs.get(TEXT_REMOVED, "")
+        text_written = attrs.get(TEXT_WRITTEN, "")
+        return CellTextChanged(cell_id, from_character, text_removed, text_written)
+    raise ValueError(f'No change is written as "{change}"')
+
+
+def serialize(cells: Sequence[Cell], suggestions: Sequence[Suggestion]) -> str:
+    marker_attributes = MarkerAttributes()
+    out: list[str] = []
+    for cell in cells:
+        marker = marker_for(cell, marker_attributes)
+        out.append(marker)
+        out.append("")
+        if cell.source:
+            out.append(cell.source)
+            out.append("")
+        suggestion = next((held for held in suggestions if held.cell_id == cell.unique_id), None)
+        if suggestion is not None:
+            suggestion_lines = _suggestion_written(suggestion)
+            out.extend(suggestion_lines)
+            out.append("")
+    cell_ids = [cell.unique_id for cell in cells]
+    suggestions_for_no_cell = [suggestion for suggestion in suggestions if suggestion.cell_id not in cell_ids]
+    for suggestion in suggestions_for_no_cell:
+        suggestion_lines = _suggestion_written(suggestion)
+        out.extend(suggestion_lines)
+        out.append("")
+    serialized = "\n".join(out)
+    return serialized
+
+
+def _suggestion_written(suggestion: Suggestion) -> list[str]:
+    cell_id_written = written_attribute_value(suggestion.cell_id)
+    marker = f'<!-- suggestion: {_UNIQUE_ID}="{cell_id_written}" -->'
+    change_markers = ChangeMarkers()
+    diff = suggestion.diff()
+    changes_written = [change.accept(change_markers) for change in diff.changes]
+    written = [marker, *changes_written]
+    return written
 
 
 def cell_of_kind(kind: str) -> Cell:
