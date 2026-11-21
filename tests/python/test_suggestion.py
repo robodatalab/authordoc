@@ -66,32 +66,37 @@ class SuggestionInADocument(unittest.TestCase):
 
         self.assertEqual(patched_written, THE_CHAPTER_AFTER)
 
-    def test_proposes_a_cell_the_document_does_not_have_yet_written_after_every_cell(self) -> None:
-        before = Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n')
-        after = Document(
+    def test_is_refused_for_a_cell_the_document_does_not_have_when_added_to_it(self) -> None:
+        document = Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n')
+        empty_diff = AuthorDocDiff([])
+        suggestion = Suggestion("c9", empty_diff)
+
+        with self.assertRaises(ValueError) as refused:
+            document.with_suggestion(suggestion)
+
+        self.assertEqual(str(refused.exception), "The suggestion is for cell c9, which the document does not have")
+
+    def test_is_refused_for_a_cell_the_document_does_not_have_when_the_document_is_built_with_it(self) -> None:
+        document = Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n')
+        empty_diff = AuthorDocDiff([])
+        suggestion = Suggestion("c9", empty_diff)
+
+        with self.assertRaises(ValueError) as refused:
+            Document.from_cells(document.cells, None, [suggestion])
+
+        self.assertEqual(str(refused.exception), "The suggestion is for cell c9, which the document does not have")
+
+    def test_is_refused_for_a_cell_the_document_does_not_have_when_read(self) -> None:
+        text = (
             '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n'
-            '<!-- cell: markdown id="c9" -->\n\nHe heard "the bell".\nTwice.\n'
+            '<!-- suggestion: id="c9" -->\n'
+            '<!-- change: text from="0" removed="" written="He heard the bell." -->\n'
         )
-        diff = AuthorDocDiff.diff(before, after)
-        suggestion_made = Suggestion("c9", diff)
-        suggested = before.with_suggestion(suggestion_made)
 
-        read_back = Document(suggested.serialize())
-        suggestion = read_back.suggestion_for("c9")
-        assert suggestion is not None
-        patched = suggestion.diff().apply_the_diff(read_back)
-        patched_written = Document.from_cells(patched.cells).serialize()
+        with self.assertRaises(ValueError) as refused:
+            Document(text)
 
-        self.assertEqual(
-            [suggested.serialize(), patched_written],
-            [
-                '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n'
-                '<!-- suggestion: id="c9" -->\n'
-                '<!-- change: added at="1" kind="markdown" text="He heard \\"the bell\\".\\nTwice." -->\n',
-                '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n'
-                '<!-- cell: markdown id="c9" -->\n\nHe heard "the bell".\nTwice.\n',
-            ],
-        )
+        self.assertEqual(str(refused.exception), "The suggestion is for cell c9, which the document does not have")
 
     def test_is_one_per_cell_a_new_one_for_a_cell_taking_the_place_of_the_one_before(self) -> None:
         document = Document(WITH_A_SUGGESTION)

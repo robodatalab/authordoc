@@ -56,6 +56,14 @@ class Document:
         self._path = path
         self._cells = parse(text)
         self._suggestions = parse_suggestions(text)
+        suggestion_without_its_cell = next(
+            (suggestion for suggestion in self._suggestions if self.cell_with_id(suggestion.cell_id) is None),
+            None,
+        )
+        if suggestion_without_its_cell is not None:
+            raise ValueError(
+                f"The suggestion is for cell {suggestion_without_its_cell.cell_id}, which the document does not have"
+            )
 
     @classmethod
     def from_cells(cls, cells: Sequence[Cell], path: Path | None = None, suggestions: Sequence[Suggestion] = ()) -> Document:
