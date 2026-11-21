@@ -158,7 +158,9 @@ class Document:
         from authordoc.diff import AuthorDocDiff
         from authordoc.synchronizers.passages_synchronizer import PassagesSynchronizer
 
-        written = Document.from_cells(cells, self._path, self._suggestions)
+        cell_ids_kept = {cell.unique_id for cell in cells}
+        suggestions_of_the_cells_kept = [suggestion for suggestion in self._suggestions if suggestion.cell_id in cell_ids_kept]
+        written = Document.from_cells(cells, self._path, suggestions_of_the_cells_kept)
         change = AuthorDocDiff.diff(self, written)
         synchronizer = PassagesSynchronizer()
         passages_moved = synchronizer.synchronize(self, change)

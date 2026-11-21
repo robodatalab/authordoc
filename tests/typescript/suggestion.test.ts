@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CellRemoved } from "../../typescript/changes/cell_removed";
 import { AuthorDocDiff } from "../../typescript/diff";
 import { Document } from "../../typescript/storydoc";
 import { Suggestion } from "../../typescript/suggestion";
@@ -126,6 +127,18 @@ describe("Suggestion — a change proposed to a cell, kept beside it as the diff
         const changed = document.withCell(heHeardTwice);
 
         expect(changed.suggestionFor("c1")?.cellId).toBe("c1");
+    });
+
+    it("deleting a cell deletes its suggestion", () => {
+        const document = new Document(WITH_A_SUGGESTION);
+        const [sheSaw, heHeard] = document.cells;
+        const sheSawRemoved = new CellRemoved(0, sheSaw);
+        const removal = new AuthorDocDiff([sheSawRemoved]);
+
+        const deletedWithCells = document.withCells([heHeard]);
+        const deletedWithADiff = removal.applyTheDiff(document);
+
+        expect([deletedWithCells.suggestions, deletedWithADiff.suggestions]).toEqual([[], []]);
     });
 
     it("gives its diff, and a suggestion with another diff in its place", () => {
