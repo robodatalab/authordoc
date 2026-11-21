@@ -64,25 +64,35 @@ describe("Suggestion — a change proposed to a cell, kept beside it as the diff
         expect(patchedWritten).toBe(THE_CHAPTER_AFTER);
     });
 
-    it("proposes a cell the document does not have yet, written after every cell", () => {
-        const before = new Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n');
-        const after = new Document(
-            '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n<!-- cell: markdown id="c9" -->\n\nHe heard "the bell".\nTwice.\n',
+    it("is refused for a cell the document does not have, when added to it", () => {
+        const document = new Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n');
+        const emptyDiff = new AuthorDocDiff([]);
+        const suggestion = new Suggestion("c9", emptyDiff);
+
+        expect(() => document.withSuggestion(suggestion)).toThrow(
+            "The suggestion is for cell c9, which the document does not have",
         );
-        const diff = AuthorDocDiff.diff(before, after);
-        const suggestion = new Suggestion("c9", diff);
-        const suggested = before.withSuggestion(suggestion);
+    });
 
-        const readBack = new Document(suggested.serialize());
-        const patched = readBack.suggestionFor("c9")!.diff().applyTheDiff(readBack);
-        const patchedWritten = Document.fromCells(patched.cells).serialize();
+    it("is refused for a cell the document does not have, when the document is built with it", () => {
+        const document = new Document('<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n');
+        const emptyDiff = new AuthorDocDiff([]);
+        const suggestion = new Suggestion("c9", emptyDiff);
 
-        expect([suggested.serialize(), patchedWritten]).toEqual([
+        expect(() => Document.fromCells(document.cells, null, [suggestion])).toThrow(
+            "The suggestion is for cell c9, which the document does not have",
+        );
+    });
+
+    it("is refused for a cell the document does not have, when read", () => {
+        const text =
             '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n' +
-                '<!-- suggestion: id="c9" -->\n' +
-                '<!-- change: added at="1" kind="markdown" text="He heard \\"the bell\\".\\nTwice." -->\n',
-            '<!-- cell: markdown id="c1" -->\n\nShe saw the door.\n\n<!-- cell: markdown id="c9" -->\n\nHe heard "the bell".\nTwice.\n',
-        ]);
+            '<!-- suggestion: id="c9" -->\n' +
+            '<!-- change: text from="0" removed="" written="He heard the bell." -->\n';
+
+        expect(() => new Document(text)).toThrow(
+            "The suggestion is for cell c9, which the document does not have",
+        );
     });
 
     it("is one per cell: a new one for a cell takes the place of the one before", () => {

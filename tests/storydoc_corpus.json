@@ -403,31 +403,6 @@
             "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c1\" -->\n<!-- change: text from=\"16\" removed=\"\" written=\" at last\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n"
         },
         {
-            "name": "a suggestion of a cell the document does not have yet is written after every cell",
-            "text": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- suggestion: id=\"c9\" -->\n<!-- change: added at=\"1\" kind=\"markdown\" text=\"He heard \\\"the bell\\\".\\nTwice.\" -->\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n",
-            "cells": [
-                {
-                    "kind": "markdown",
-                    "source": "She saw the door.",
-                    "id": "c1"
-                },
-                {
-                    "kind": "markdown",
-                    "source": "He heard the bell.",
-                    "id": "c2"
-                }
-            ],
-            "suggestions": [
-                {
-                    "id": "c9",
-                    "changes": [
-                        "CellAdded"
-                    ]
-                }
-            ],
-            "dumped": "<!-- cell: markdown id=\"c1\" -->\n\nShe saw the door.\n\n<!-- cell: markdown id=\"c2\" -->\n\nHe heard the bell.\n\n<!-- suggestion: id=\"c9\" -->\n<!-- change: added at=\"1\" kind=\"markdown\" text=\"He heard \\\"the bell\\\".\\nTwice.\" -->\n"
-        },
-        {
             "name": "a suggestion changes a cell's header and its text",
             "text": "<!-- cell: chapter id=\"h1\" title=\"Bell\" -->\n\nThe bell rings.\n\n<!-- suggestion: id=\"h1\" -->\n<!-- change: header kind=\"chapter\" before-title=\"Bell\" after-title=\"The bell tolls\" after-folded=\"true\" -->\n<!-- change: text from=\"9\" removed=\"rings\" written=\"tolls at night\" -->\n",
             "cells": [

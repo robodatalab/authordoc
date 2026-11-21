@@ -53,6 +53,14 @@ export class Document {
     ) {
         this._cells = parse(text);
         this._suggestions = parseSuggestions(text);
+        const suggestionWithoutItsCell = this._suggestions.find(
+            (suggestion) => this.cellWithId(suggestion.cellId) === undefined,
+        );
+        if (suggestionWithoutItsCell !== undefined) {
+            throw new Error(
+                `The suggestion is for cell ${suggestionWithoutItsCell.cellId}, which the document does not have`,
+            );
+        }
     }
 
     /**
