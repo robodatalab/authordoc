@@ -158,10 +158,13 @@ export class Document {
      * changed: the one you hold stays as it is.
      */
     withCells(cells: readonly Cell[]): Document {
+        const suggestionsOfTheCellsKept = this._suggestions.filter((suggestion) =>
+            cells.some((cell) => cell.uniqueId === suggestion.cellId),
+        );
         const written = Document.fromCells(
             cells,
             this._path,
-            this._suggestions,
+            suggestionsOfTheCellsKept,
         );
         const change = AuthorDocDiff.diff(this, written);
         const synchronizer = new PassagesSynchronizer();

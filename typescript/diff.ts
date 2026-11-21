@@ -92,6 +92,10 @@ export class AuthorDocDiff {
         for (const change of this.changes) {
             cells = change.applyTo(cells);
         }
-        return Document.fromCells(cells, document.path, document.suggestions);
+        const suggestionsOfTheCellsKept = document.suggestions.filter((suggestion) =>
+            cells.some((cell) => cell.uniqueId === suggestion.cellId),
+        );
+        const applied = Document.fromCells(cells, document.path, suggestionsOfTheCellsKept);
+        return applied;
     }
 }

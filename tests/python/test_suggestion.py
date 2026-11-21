@@ -1,5 +1,6 @@
 import unittest
 
+from authordoc.changes.cell_removed import CellRemoved
 from authordoc.diff import AuthorDocDiff
 from authordoc.storydoc import Document
 from authordoc.suggestion import Suggestion
@@ -131,6 +132,17 @@ class SuggestionInADocument(unittest.TestCase):
         changed = document.with_cell(he_heard_twice)
 
         self.assertEqual(changed.suggestion_for("c1"), document.suggestion_for("c1"))
+
+    def test_deleting_a_cell_deletes_its_suggestion(self) -> None:
+        document = Document(WITH_A_SUGGESTION)
+        she_saw, he_heard = document.cells
+        she_saw_removed = CellRemoved(0, she_saw)
+        removal = AuthorDocDiff([she_saw_removed])
+
+        deleted_with_cells = document.with_cells([he_heard])
+        deleted_with_a_diff = removal.apply_the_diff(document)
+
+        self.assertEqual([deleted_with_cells.suggestions, deleted_with_a_diff.suggestions], [[], []])
 
 
 class SuggestionsDiff(unittest.TestCase):
