@@ -30,6 +30,7 @@ import {
     StoryWord,
     StoryWordsIterator,
 } from "../../typescript/iterators/story_words_iterator";
+import { NestedPlacesIterator } from "../../typescript/iterators/nested_places_iterator";
 import { parse, parseSuggestions } from "../../typescript/parser";
 
 interface CorpusCase {
@@ -1641,6 +1642,35 @@ describe("a place's ancestors", () => {
 });
 
 describe("a document's places", () => {
+    it.each([
+        [
+            "the places that lie within no other, in the order of the story",
+            [
+                '<!-- cell: place id="en" title="England" -->',
+                '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+                '<!-- cell: place id="ws" title="Westmarch" -->',
+            ],
+            ["en", "ws"],
+        ],
+        [
+            "the places whose parent is gone or that lie within one another in a circle",
+            [
+                '<!-- cell: place id="o" title="Orbit" parent="x9" -->',
+                '<!-- cell: place id="a" title="A" parent="b" -->',
+                '<!-- cell: place id="b" title="B" parent="a" -->',
+            ],
+            ["o", "a", "b"],
+        ],
+    ])("are %s", (_, written, expected) => {
+        const document = new Document(written.join("\n\n"));
+
+        const places = document.places();
+
+        expect(places.map((place) => place.uniqueId)).toEqual(expected);
+    });
+});
+
+describe("the places within a place", () => {
     const THE_STORY = [
         '<!-- cell: place id="en" title="England" -->',
         "",
@@ -1650,18 +1680,24 @@ describe("a document's places", () => {
         "",
         '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->',
         "",
+        '<!-- cell: place id="mk" title="The market" parent="hg" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
     ].join("\n");
 
-    it("are the places directly within each place, in the order of the story", () => {
+    it.each([
+        ["every one, breadth first", "en", ["hv", "hg", "ln", "mk"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
         const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
 
-        const places = document.places;
+        const nestedPlaces = new NestedPlacesIterator(document, place);
 
-        expect(
-            [...places.entries()].map(([parentId, within]) => [parentId, within.map((place) => place.uniqueId)]),
-        ).toEqual([
-            ["en", ["hv", "hg"]],
-            ["hv", ["ln"]],
-        ]);
+        expect(Array.from(nestedPlaces, (nested) => nested.uniqueId)).toEqual(expected);
     });
 });

@@ -191,19 +191,10 @@ class Document:
     def plots(self) -> list[PlotCell]:
         return [cell for cell in self._cells if isinstance(cell, PlotCell)]
 
-    @property
-    def places(self) -> dict[str, list[PlaceCell]]:
-        places: dict[str, list[PlaceCell]] = {}
-        for cell in self._cells:
-            if not isinstance(cell, PlaceCell):
-                continue
-            ancestors = cell.ancestors(self)
-            if not ancestors:
-                continue
-            parent = ancestors[0]
-            within = places.get(parent.unique_id, [])
-            places[parent.unique_id] = [*within, cell]
-        return places
+    def places(self) -> list[PlaceCell]:
+        places = [cell for cell in self._cells if isinstance(cell, PlaceCell)]
+        top_level = [place for place in places if not place.ancestors(self)]
+        return top_level
 
     def get_plot_of_edge(self, edge: PlotEdge) -> PlotCell:
         plot = next(plot for plot in self.plots() if edge in plot.edges)
