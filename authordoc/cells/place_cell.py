@@ -44,6 +44,15 @@ class PlaceCell(Cell):
             parent = reached.parent(document)
         return ancestors
 
+    def children(self, document: Document) -> list[PlaceCell]:
+        places = [cell for cell in document.cells if isinstance(cell, PlaceCell)]
+        children: list[PlaceCell] = []
+        for place in places:
+            ancestors = place.ancestors(document)
+            if ancestors and ancestors[0].unique_id == self.unique_id:
+                children.append(place)
+        return children
+
     def with_parent(self, parent: PlaceCell | None) -> PlaceCell:
         parent_id = "" if parent is None else parent.unique_id
         placed = replace(self, _parent=parent_id)

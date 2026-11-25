@@ -11,7 +11,8 @@ from parameterized import parameterized
 from authordoc import storydoc
 from authordoc.parser import parse, parse_suggestions
 from authordoc.iterators.chapters_iterator import ChaptersIterator
-from authordoc.iterators.nested_places_iterator import NestedPlacesIterator
+from authordoc.iterators.breadth_first_places_iterator import BreadthFirstPlacesIterator
+from authordoc.iterators.depth_first_places_iterator import DepthFirstPlacesIterator
 from authordoc.iterators.prose_cells_iterator import ProseCellsIterator
 from authordoc.iterators.story_lines_iterator import StoryLinesIterator
 from authordoc.iterators.story_words_iterator import StoryWordsIterator
@@ -2014,6 +2015,37 @@ class DocumentPlaces(unittest.TestCase):
         self.assertEqual([place.unique_id for place in places], expected)
 
 
+class PlaceChildren(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: place id="en" title="England" -->\n'
+        "\n"
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->\n'
+        "\n"
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->\n'
+        "\n"
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->\n'
+        "\n"
+        '<!-- cell: place id="a" title="A" parent="b" -->\n'
+        "\n"
+        '<!-- cell: place id="b" title="B" parent="a" -->\n'
+    )
+
+    @parameterized.expand(
+        [
+            ("the_places_whose_parent_it_is_in_the_order_of_the_story", "en", ["hv", "hg"]),
+            ("none_for_a_place_with_none_within_it", "ln", []),
+            ("none_for_a_place_that_lies_within_another_in_a_circle", "a", []),
+        ]
+    )
+    def test_are(self, _, place_id: str, expected: list[str]) -> None:
+        document = Document(self.THE_STORY)
+        place = PlaceCell("", "", False, None, place_id)
+
+        children = place.children(document)
+
+        self.assertEqual([child.unique_id for child in children], expected)
+
+
 class NestedPlaces(unittest.TestCase):
     THE_STORY = (
         '<!-- cell: place id="en" title="England" -->\n'
@@ -2038,10 +2070,25 @@ class NestedPlaces(unittest.TestCase):
             ("none_for_a_place_that_lies_within_another_in_a_circle", "a", []),
         ]
     )
-    def test_are(self, _, place_id: str, expected: list[str]) -> None:
+    def test_are_walked_breadth_first(self, _, place_id: str, expected: list[str]) -> None:
         document = Document(self.THE_STORY)
         place = PlaceCell("", "", False, None, place_id)
 
-        nested_places = NestedPlacesIterator(document, place)
+        places_breadth_first = BreadthFirstPlacesIterator(document, place)
 
-        self.assertEqual([nested.unique_id for nested in nested_places], expected)
+        self.assertEqual([nested.unique_id for nested in places_breadth_first], expected)
+
+    @parameterized.expand(
+        [
+            ("every_one_depth_first", "en", ["hv", "ln", "hg", "mk"]),
+            ("none_for_a_place_with_none_within_it", "ln", []),
+            ("none_for_a_place_that_lies_within_another_in_a_circle", "a", []),
+        ]
+    )
+    def test_are_walked_depth_first(self, _, place_id: str, expected: list[str]) -> None:
+        document = Document(self.THE_STORY)
+        place = PlaceCell("", "", False, None, place_id)
+
+        places_depth_first = DepthFirstPlacesIterator(document, place)
+
+        self.assertEqual([nested.unique_id for nested in places_depth_first], expected)

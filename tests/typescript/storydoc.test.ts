@@ -30,7 +30,8 @@ import {
     StoryWord,
     StoryWordsIterator,
 } from "../../typescript/iterators/story_words_iterator";
-import { NestedPlacesIterator } from "../../typescript/iterators/nested_places_iterator";
+import { BreadthFirstPlacesIterator } from "../../typescript/iterators/breadth_first_places_iterator";
+import { DepthFirstPlacesIterator } from "../../typescript/iterators/depth_first_places_iterator";
 import { parse, parseSuggestions } from "../../typescript/parser";
 
 interface CorpusCase {
@@ -1670,6 +1671,36 @@ describe("a document's places", () => {
     });
 });
 
+describe("a place's children", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->',
+        "",
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["the places whose parent it is, in the order of the story", "en", ["hv", "hg"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
+
+        const children = place.children(document);
+
+        expect(children.map((child) => child.uniqueId)).toEqual(expected);
+    });
+});
+
 describe("the places within a place", () => {
     const THE_STORY = [
         '<!-- cell: place id="en" title="England" -->',
@@ -1696,8 +1727,21 @@ describe("the places within a place", () => {
         const document = new Document(THE_STORY);
         const place = new PlaceCell("", "", false, null, placeId);
 
-        const nestedPlaces = new NestedPlacesIterator(document, place);
+        const placesBreadthFirst = new BreadthFirstPlacesIterator(document, place);
 
-        expect(Array.from(nestedPlaces, (nested) => nested.uniqueId)).toEqual(expected);
+        expect(Array.from(placesBreadthFirst, (nested) => nested.uniqueId)).toEqual(expected);
+    });
+
+    it.each([
+        ["every one, depth first", "en", ["hv", "ln", "hg", "mk"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
+
+        const placesDepthFirst = new DepthFirstPlacesIterator(document, place);
+
+        expect(Array.from(placesDepthFirst, (nested) => nested.uniqueId)).toEqual(expected);
     });
 });

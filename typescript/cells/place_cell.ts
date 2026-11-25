@@ -41,6 +41,17 @@ export class PlaceCell extends Cell {
         return ancestors;
     }
 
+    children(document: Document): PlaceCell[] {
+        const places = document.cells.filter(
+            (cell) => cell instanceof PlaceCell,
+        );
+        const children = places.filter((place) => {
+            const [parent] = place.ancestors(document);
+            return parent?.uniqueId === this.uniqueId;
+        });
+        return children;
+    }
+
     withParent(parent: PlaceCell | null): PlaceCell {
         const parentId = parent?.uniqueId ?? "";
         const placed = new PlaceCell(
