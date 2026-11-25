@@ -1952,3 +1952,53 @@ class PlaceParent(unittest.TestCase):
             "\n"
             "A village of weavers.\n",
         )
+
+
+class PlaceAncestors(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: place id="en" title="England" -->\n'
+        "\n"
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->\n'
+        "\n"
+        '<!-- cell: place id="a" title="A" parent="b" -->\n'
+        "\n"
+        '<!-- cell: place id="b" title="B" parent="a" -->\n'
+    )
+
+    @parameterized.expand(
+        [
+            ("every_place_up_to_the_outermost_the_nearest_first", "hv", ["hv", "en"]),
+            ("none_for_the_outermost", "", []),
+            ("none_when_its_parent_is_gone", "x9", []),
+            ("none_when_the_places_it_lies_within_lie_within_one_another_in_a_circle", "a", []),
+        ]
+    )
+    def test_are(self, _, parent_id: str, expected: list[str]) -> None:
+        document = Document(self.THE_STORY)
+        place = PlaceCell("The lane", "", False, None, "ln", parent_id)
+
+        ancestors = place.ancestors(document)
+
+        self.assertEqual([ancestor.unique_id for ancestor in ancestors], expected)
+
+
+class DocumentPlaces(unittest.TestCase):
+    THE_STORY = (
+        '<!-- cell: place id="en" title="England" -->\n'
+        "\n"
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->\n'
+        "\n"
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->\n'
+        "\n"
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->\n'
+    )
+
+    def test_are_the_places_directly_within_each_place_in_the_order_of_the_story(self) -> None:
+        document = Document(self.THE_STORY)
+
+        places = document.places
+
+        self.assertEqual(
+            {parent_id: [place.unique_id for place in within] for parent_id, within in places.items()},
+            {"en": ["hv", "hg"], "hv": ["ln"]},
+        )

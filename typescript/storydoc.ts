@@ -32,6 +32,7 @@
  */
 
 import { Cell, splitlines } from "./cells/cell";
+import { PlaceCell } from "./cells/place_cell";
 import { PlotCell, PlotEdge, PlotNode } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
@@ -212,6 +213,22 @@ export class Document {
 
     plots(): PlotCell[] {
         return this._cells.filter((cell) => cell instanceof PlotCell);
+    }
+
+    get places(): Map<string, PlaceCell[]> {
+        const places = new Map<string, PlaceCell[]>();
+        for (const cell of this._cells) {
+            if (!(cell instanceof PlaceCell)) {
+                continue;
+            }
+            const [parent] = cell.ancestors(this);
+            if (parent === undefined) {
+                continue;
+            }
+            const within = places.get(parent.uniqueId) ?? [];
+            places.set(parent.uniqueId, [...within, cell]);
+        }
+        return places;
     }
 
     getPlotOfEdge(edge: PlotEdge): PlotCell {

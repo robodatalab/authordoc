@@ -30,6 +30,20 @@ class PlaceCell(Cell):
         parent = referenced if isinstance(referenced, PlaceCell) else None
         return parent
 
+    def ancestors(self, document: Document) -> list[PlaceCell]:
+        ancestors: list[PlaceCell] = []
+        parent = self.parent(document)
+        while parent is not None:
+            reached = parent
+            is_a_cycle = reached.unique_id == self.unique_id or any(
+                outer.unique_id == reached.unique_id for outer in ancestors
+            )
+            if is_a_cycle:
+                return []
+            ancestors.append(reached)
+            parent = reached.parent(document)
+        return ancestors
+
     def with_parent(self, parent: PlaceCell | None) -> PlaceCell:
         parent_id = "" if parent is None else parent.unique_id
         placed = replace(self, _parent=parent_id)

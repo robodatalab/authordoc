@@ -1612,3 +1612,56 @@ describe("a place's parent", () => {
         );
     });
 });
+
+describe("a place's ancestors", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["every place up to the outermost, the nearest first", "hv", ["hv", "en"]],
+        ["none for the outermost", "", []],
+        ["none when its parent is gone", "x9", []],
+        ["none when the places it lies within lie within one another in a circle", "a", []],
+    ])("are %s", (_, parentId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("The lane", "", false, null, "ln", parentId);
+
+        const ancestors = place.ancestors(document);
+
+        expect(ancestors.map((ancestor) => ancestor.uniqueId)).toEqual(expected);
+    });
+});
+
+describe("a document's places", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->',
+        "",
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->',
+        "",
+    ].join("\n");
+
+    it("are the places directly within each place, in the order of the story", () => {
+        const document = new Document(THE_STORY);
+
+        const places = document.places;
+
+        expect(
+            [...places.entries()].map(([parentId, within]) => [parentId, within.map((place) => place.uniqueId)]),
+        ).toEqual([
+            ["en", ["hv", "hg"]],
+            ["hv", ["ln"]],
+        ]);
+    });
+});
