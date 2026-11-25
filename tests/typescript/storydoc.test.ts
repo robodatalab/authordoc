@@ -30,6 +30,8 @@ import {
     StoryWord,
     StoryWordsIterator,
 } from "../../typescript/iterators/story_words_iterator";
+import { BreadthFirstPlacesIterator } from "../../typescript/iterators/breadth_first_places_iterator";
+import { DepthFirstPlacesIterator } from "../../typescript/iterators/depth_first_places_iterator";
 import { parse, parseSuggestions } from "../../typescript/parser";
 
 interface CorpusCase {
@@ -1610,5 +1612,136 @@ describe("a place's parent", () => {
                 "",
             ].join("\n"),
         );
+    });
+});
+
+describe("a place's ancestors", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["every place up to the outermost, the nearest first", "hv", ["hv", "en"]],
+        ["none for the outermost", "", []],
+        ["none when its parent is gone", "x9", []],
+        ["none when the places it lies within lie within one another in a circle", "a", []],
+    ])("are %s", (_, parentId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("The lane", "", false, null, "ln", parentId);
+
+        const ancestors = place.ancestors(document);
+
+        expect(ancestors.map((ancestor) => ancestor.uniqueId)).toEqual(expected);
+    });
+});
+
+describe("a document's places", () => {
+    it.each([
+        [
+            "the places that lie within no other, in the order of the story",
+            [
+                '<!-- cell: place id="en" title="England" -->',
+                '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+                '<!-- cell: place id="ws" title="Westmarch" -->',
+            ],
+            ["en", "ws"],
+        ],
+        [
+            "the places whose parent is gone or that lie within one another in a circle",
+            [
+                '<!-- cell: place id="o" title="Orbit" parent="x9" -->',
+                '<!-- cell: place id="a" title="A" parent="b" -->',
+                '<!-- cell: place id="b" title="B" parent="a" -->',
+            ],
+            ["o", "a", "b"],
+        ],
+    ])("are %s", (_, written, expected) => {
+        const document = new Document(written.join("\n\n"));
+
+        const places = document.places();
+
+        expect(places.map((place) => place.uniqueId)).toEqual(expected);
+    });
+});
+
+describe("a place's children", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->',
+        "",
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["the places whose parent it is, in the order of the story", "en", ["hv", "hg"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
+
+        const children = place.children(document);
+
+        expect(children.map((child) => child.uniqueId)).toEqual(expected);
+    });
+});
+
+describe("the places within a place", () => {
+    const THE_STORY = [
+        '<!-- cell: place id="en" title="England" -->',
+        "",
+        '<!-- cell: place id="hv" title="Hollowmere village" parent="en" -->',
+        "",
+        '<!-- cell: place id="ln" title="The lane" parent="hv" -->',
+        "",
+        '<!-- cell: place id="hg" title="Harrowgate" parent="en" -->',
+        "",
+        '<!-- cell: place id="mk" title="The market" parent="hg" -->',
+        "",
+        '<!-- cell: place id="a" title="A" parent="b" -->',
+        "",
+        '<!-- cell: place id="b" title="B" parent="a" -->',
+        "",
+    ].join("\n");
+
+    it.each([
+        ["every one, breadth first", "en", ["hv", "hg", "ln", "mk"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
+
+        const placesBreadthFirst = new BreadthFirstPlacesIterator(document, place);
+
+        expect(Array.from(placesBreadthFirst, (nested) => nested.uniqueId)).toEqual(expected);
+    });
+
+    it.each([
+        ["every one, depth first", "en", ["hv", "ln", "hg", "mk"]],
+        ["none for a place with none within it", "ln", []],
+        ["none for a place that lies within another in a circle", "a", []],
+    ])("are %s", (_, placeId, expected) => {
+        const document = new Document(THE_STORY);
+        const place = new PlaceCell("", "", false, null, placeId);
+
+        const placesDepthFirst = new DepthFirstPlacesIterator(document, place);
+
+        expect(Array.from(placesDepthFirst, (nested) => nested.uniqueId)).toEqual(expected);
     });
 });

@@ -24,6 +24,34 @@ export class PlaceCell extends Cell {
         return parent;
     }
 
+    ancestors(document: Document): PlaceCell[] {
+        const ancestors: PlaceCell[] = [];
+        let parent = this.parent(document);
+        while (parent !== undefined) {
+            const reached = parent;
+            const isACycle =
+                reached.uniqueId === this.uniqueId ||
+                ancestors.some((outer) => outer.uniqueId === reached.uniqueId);
+            if (isACycle) {
+                return [];
+            }
+            ancestors.push(reached);
+            parent = reached.parent(document);
+        }
+        return ancestors;
+    }
+
+    children(document: Document): PlaceCell[] {
+        const places = document.cells.filter(
+            (cell) => cell instanceof PlaceCell,
+        );
+        const children = places.filter((place) => {
+            const [parent] = place.ancestors(document);
+            return parent?.uniqueId === this.uniqueId;
+        });
+        return children;
+    }
+
     withParent(parent: PlaceCell | null): PlaceCell {
         const parentId = parent?.uniqueId ?? "";
         const placed = new PlaceCell(

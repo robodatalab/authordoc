@@ -32,6 +32,7 @@
  */
 
 import { Cell, splitlines } from "./cells/cell";
+import { PlaceCell } from "./cells/place_cell";
 import { PlotCell, PlotEdge, PlotNode } from "./cells/plot_cell";
 import { SalientConceptCell } from "./cells/salient_concept_cell";
 import { TitlePageCell } from "./cells/title_page_cell";
@@ -112,7 +113,9 @@ export class Document {
     }
 
     suggestionFor(cellId: string): Suggestion | undefined {
-        return this._suggestions.find((suggestion) => suggestion.cellId === cellId);
+        return this._suggestions.find(
+            (suggestion) => suggestion.cellId === cellId,
+        );
     }
 
     get lines(): string[] {
@@ -158,8 +161,9 @@ export class Document {
      * changed: the one you hold stays as it is.
      */
     withCells(cells: readonly Cell[]): Document {
-        const suggestionsOfTheCellsKept = this._suggestions.filter((suggestion) =>
-            cells.some((cell) => cell.uniqueId === suggestion.cellId),
+        const suggestionsOfTheCellsKept = this._suggestions.filter(
+            (suggestion) =>
+                cells.some((cell) => cell.uniqueId === suggestion.cellId),
         );
         const written = Document.fromCells(
             cells,
@@ -178,7 +182,9 @@ export class Document {
      * step as `withCells` keeps it.
      */
     withCell(cell: Cell): Document {
-        const replaced = this._cells.map((held) => (held.uniqueId === cell.uniqueId ? cell : held));
+        const replaced = this._cells.map((held) =>
+            held.uniqueId === cell.uniqueId ? cell : held,
+        );
         const withTheCell = this.withCells(replaced);
         return withTheCell;
     }
@@ -214,6 +220,17 @@ export class Document {
         return this._cells.filter((cell) => cell instanceof PlotCell);
     }
 
+    /**
+     * Returns the top-level places: the place cells that have no ancestors.
+     */
+    places(): PlaceCell[] {
+        const places = this._cells.filter((cell) => cell instanceof PlaceCell);
+        const topLevel = places.filter(
+            (place) => place.ancestors(this).length === 0,
+        );
+        return topLevel;
+    }
+
     getPlotOfEdge(edge: PlotEdge): PlotCell {
         const plot = this.plots().find((plot) =>
             plot.edges.some(
@@ -234,13 +251,17 @@ export class Document {
             plot.nodes.some(
                 (nodeOfThePlot) =>
                     nodeOfThePlot.nodeId === node.nodeId &&
-                    nodeOfThePlot.storyWordRange?.firstWord === node.storyWordRange?.firstWord &&
-                    nodeOfThePlot.storyWordRange?.lastWord === node.storyWordRange?.lastWord &&
+                    nodeOfThePlot.storyWordRange?.firstWord ===
+                        node.storyWordRange?.firstWord &&
+                    nodeOfThePlot.storyWordRange?.lastWord ===
+                        node.storyWordRange?.lastWord &&
                     nodeOfThePlot.timestamp === node.timestamp &&
                     nodeOfThePlot.placeId === node.placeId &&
-                    nodeOfThePlot.characterIds.length === node.characterIds.length &&
+                    nodeOfThePlot.characterIds.length ===
+                        node.characterIds.length &&
                     nodeOfThePlot.characterIds.every(
-                        (characterId, at) => characterId === node.characterIds[at],
+                        (characterId, at) =>
+                            characterId === node.characterIds[at],
                     ) &&
                     nodeOfThePlot.summary === node.summary,
             ),
